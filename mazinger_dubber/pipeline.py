@@ -224,6 +224,7 @@ class MazingerDubber:
             translated_srt = translate.translate_srt(
                 source_srt_text, description, thumb_paths, client,
                 llm_model=self.llm_model,
+                target_language=tts_language,
             )
             with open(proj.translated_raw_srt, "w", encoding="utf-8") as fh:
                 fh.write(translated_srt)

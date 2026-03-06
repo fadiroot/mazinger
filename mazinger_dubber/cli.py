@@ -187,6 +187,7 @@ def _cmd_translate(args: argparse.Namespace) -> None:
 
     result = translate_srt(
         srt_text, description, thumb_paths, client, llm_model=args.llm_model,
+        target_language=args.target_language,
     )
     with open(args.output, "w", encoding="utf-8") as fh:
         fh.write(result)
@@ -392,6 +393,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--description", required=True, help="Path to description JSON.")
     p.add_argument("--thumbnails-meta", default=None, help="Path to thumbnails meta.json.")
     p.add_argument("-o", "--output", required=True, help="Output SRT path.")
+    p.add_argument("--target-language", default="English", help="Target language for translation (default: English).")
     p.add_argument("--llm-model", default="gpt-4.1", help="LLM model.")
     p.add_argument("--openai-api-key", default=None, help="OpenAI API key.")
     p.add_argument("--openai-base-url", default=None, help="Base URL for OpenAI-compatible API.")

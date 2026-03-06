@@ -19,6 +19,21 @@ log = logging.getLogger(__name__)
 
 TTSEngine = Literal["qwen", "chatterbox"]
 
+SUPPORTED_LANGUAGES = (
+    "Chinese", "English", "Japanese", "Korean",
+    "German", "French", "Russian", "Portuguese",
+    "Spanish", "Italian",
+)
+
+
+def validate_language(language: str) -> None:
+    """Raise *ValueError* if *language* is not supported by Qwen TTS."""
+    if language not in SUPPORTED_LANGUAGES:
+        raise ValueError(
+            f"Unsupported language {language!r}. "
+            f"Supported languages: {', '.join(SUPPORTED_LANGUAGES)}"
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Qwen3-TTS Backend
@@ -65,6 +80,7 @@ def _synthesize_qwen(
     language: str = "English",
 ) -> tuple[np.ndarray, int]:
     """Generate audio using Qwen3-TTS. Returns (audio_array, sample_rate)."""
+    validate_language(language)
     wavs, sr = model.generate_voice_clone(
         text=text, language=language, voice_clone_prompt=voice_prompt,
     )

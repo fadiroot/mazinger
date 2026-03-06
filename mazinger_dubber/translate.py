@@ -19,20 +19,20 @@ BLOCKS_PER_BATCH = 24
 OVERLAP_SIZE = 8
 
 
-def _build_system_prompt(keywords: list[str], keypoints: list[str]) -> str:
+def _build_system_prompt(keywords: list[str], keypoints: list[str], target_language: str = "English") -> str:
     kw_examples = ", ".join(f'"{k}"' for k in keywords[:10])
     kp_summary = "; ".join(keypoints[:8])
 
     return f"""\
-You are a professional English subtitle writer for technical / programming \
+You are a professional {target_language} subtitle writer for technical / programming \
 tutorial videos. You are given SRT subtitles, video screenshots, and \
-a keyword/keypoint list. Produce clear, polished, professional English \
+a keyword/keypoint list. Produce clear, polished, professional {target_language} \
 subtitles -- not a literal word-for-word translation.
 
 QUALITY GOALS:
-- The English must read as if a fluent English-speaking instructor wrote it.
+- The {target_language} must read as if a fluent {target_language}-speaking instructor wrote it.
 - When the transcript is vague, incomplete, or references on-screen visuals, \
-  use the screenshots and keypoint context to write a clear English sentence.
+  use the screenshots and keypoint context to write a clear {target_language} sentence.
 - Remove filler, false starts, and verbal repetitions while preserving the \
   speaker's friendly, teaching tone.
 - Prefer concise, active-voice phrasing. Avoid run-on sentences.
@@ -41,7 +41,7 @@ STRUCTURAL RULES:
 1. Translate EVERY subtitle entry in the MAIN BLOCK. Do NOT skip, merge, \
    split, or reorder entries.
 2. Keep the EXACT SRT index numbers and timestamps -- only replace the \
-   source text with English.
+   source text with {target_language}.
 3. Preserve these technical terms exactly: {kw_examples}. \
    Use them verbatim when the speaker refers to them.
 4. The video covers: {kp_summary}. Use this to disambiguate unclear references.
@@ -79,6 +79,7 @@ def _build_messages(
     keywords: list[str],
     context_before: str = "",
     context_after: str = "",
+    target_language: str = "English",
 ) -> list[dict]:
     msgs = [{"role": "system", "content": system_prompt}]
     user_parts: list[dict] = []
@@ -106,7 +107,7 @@ def _build_messages(
     user_parts.append({
         "type": "text",
         "text": (
-            "\nTranslate the MAIN BLOCK entries into professional, clear English. "
+            f"\nTranslate the MAIN BLOCK entries into professional, clear {target_language}. "
             "Use CONTEXT BEFORE/AFTER for surrounding context but ONLY return "
             "translations for the MAIN BLOCK. Use the screenshots and context "
             "to resolve vague or incomplete references.\n"
@@ -127,10 +128,11 @@ def translate_srt(
     client: OpenAI,
     *,
     llm_model: str = "gpt-4.1",
+    target_language: str = "English",
     blocks_per_batch: int = BLOCKS_PER_BATCH,
     overlap_size: int = OVERLAP_SIZE,
 ) -> str:
-    """Translate an SRT file to English using batched LLM calls with visual context.
+    """Translate an SRT file to the target language using batched LLM calls with visual context.
 
     Parameters:
         srt_text:         Full source-language SRT string.
@@ -139,6 +141,7 @@ def translate_srt(
         thumb_paths:      List of thumbnail metadata dicts.
         client:           An initialised OpenAI client.
         llm_model:        Model identifier.
+        target_language:  Target language for translation (default: ``English``).
         blocks_per_batch: Number of core SRT blocks per LLM call.
         overlap_size:     Number of context blocks before/after each batch.
 
@@ -147,7 +150,7 @@ def translate_srt(
     """
     keywords = description.get("keywords", [])
     keypoints = description.get("keypoints", [])
-    system_prompt = _build_system_prompt(keywords, keypoints)
+    system_prompt = _build_system_prompt(keywords, keypoints, target_language)
 
     all_blocks = parse_blocks(srt_text)
     log.info("Translating %d SRT blocks in batches of %d", len(all_blocks), blocks_per_batch)
@@ -186,6 +189,7 @@ def translate_srt(
         msgs = _build_messages(
             system_prompt, batch_srt, batch_thumbs,
             keypoints, keywords, context_before, context_after,
+            target_language=target_language,
         )
         resp = client.chat.completions.create(
             model=llm_model, temperature=0.3, messages=msgs,
