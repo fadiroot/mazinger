@@ -300,7 +300,7 @@ final_srt = resegment_srt(translated, client=client)
 ### 7. Synthesise & Assemble
 
 ```bash
-# Qwen (default)
+# Qwen (default, no tempo adjustment)
 mazinger-dubber tts \
     --srt translated.srt \
     --original-audio audio.mp3 \
@@ -316,6 +316,24 @@ mazinger-dubber tts \
     --voice-script reference_transcript.txt \
     --tts-engine chatterbox \
     -o dubbed.wav
+
+# With fixed tempo (speed up all segments by 1.1×)
+mazinger-dubber tts \
+    --srt translated.srt \
+    --original-audio audio.mp3 \
+    --voice-sample reference.m4a \
+    --voice-script reference_transcript.txt \
+    --fixed-tempo 1.1 \
+    -o dubbed.wav
+
+# With dynamic tempo (per-segment, max 1.3×)
+mazinger-dubber tts \
+    --srt translated.srt \
+    --original-audio audio.mp3 \
+    --voice-sample reference.m4a \
+    --voice-script reference_transcript.txt \
+    --dynamic-tempo --max-tempo 1.3 \
+    -o dubbed.wav
 ```
 
 ```python
@@ -323,19 +341,21 @@ from mazinger_dubber import tts, assemble
 from mazinger_dubber.srt import parse_file
 from mazinger_dubber.utils import get_audio_duration
 
-# Qwen
 model = tts.load_model(engine="qwen")
 prompt = tts.create_voice_prompt(model, "reference.m4a", ref_text, engine="qwen")
 segments = tts.synthesize_segments(model, prompt, parse_file("translated.srt"), "./segments")
 tts.unload_model(prompt)
 
-# Chatterbox
-model = tts.load_model(engine="chatterbox")
-prompt = tts.create_voice_prompt(model, "reference.m4a", "", engine="chatterbox")
-segments = tts.synthesize_segments(model, prompt, parse_file("translated.srt"), "./segments")
-tts.unload_model(prompt)
-
+# No tempo adjustment (default)
 assemble.assemble_timeline(segments, get_audio_duration("audio.mp3"), "dubbed.wav")
+
+# Fixed tempo
+assemble.assemble_timeline(segments, get_audio_duration("audio.mp3"), "dubbed.wav",
+                           tempo_mode="fixed", fixed_tempo=1.1)
+
+# Dynamic tempo
+assemble.assemble_timeline(segments, get_audio_duration("audio.mp3"), "dubbed.wav",
+                           tempo_mode="dynamic", max_tempo=1.3)
 ```
 
 ---
@@ -378,6 +398,19 @@ projects/<slug>/
 | `OPENAI_MODEL`       | Default LLM model for translation/analysis       |
 
 All settings can also be passed via constructor arguments or CLI flags.
+
+### Tempo Control
+
+By default, dubbed segments are placed at their original timestamps with no speed adjustment. Use these flags to control pacing:
+
+| Flag | Effect |
+|------|--------|
+| *(default)* | No tempo change — segments placed as-is |
+| `--fixed-tempo <rate>` | Apply a constant speed multiplier to all segments (e.g. `1.1` = 10% faster) |
+| `--dynamic-tempo` | Per-segment speed matching to fit original timing |
+| `--max-tempo <rate>` | Cap for dynamic mode speed-up (default: `1.3`) |
+
+`--fixed-tempo` takes precedence if both `--fixed-tempo` and `--dynamic-tempo` are given.
 
 ---
 

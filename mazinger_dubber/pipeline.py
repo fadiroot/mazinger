@@ -77,6 +77,9 @@ class MazingerDubber:
         cookies: str | None = None,
         skip_existing: bool = True,
         use_resegmented: bool = False,
+        tempo_mode: str = "off",
+        fixed_tempo: float | None = None,
+        max_tempo: float = 1.3,
     ) -> ProjectPaths:
         """Run the full pipeline: download/ingest, transcribe, translate, and dub.
 
@@ -258,7 +261,12 @@ class MazingerDubber:
         tts.unload_model(voice_prompt)
 
         # 8. Assemble final audio ----------------------------------------
-        assemble.assemble_timeline(segment_info, original_duration, proj.final_audio)
+        assemble.assemble_timeline(
+            segment_info, original_duration, proj.final_audio,
+            tempo_mode=tempo_mode,
+            fixed_tempo=fixed_tempo,
+            max_tempo=max_tempo,
+        )
 
         drift = abs(get_audio_duration(proj.final_audio) - original_duration)
         log.info("Done. Final audio: %s (drift: %.3fs)", proj.final_audio, drift)

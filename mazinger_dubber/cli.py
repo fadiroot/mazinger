@@ -57,6 +57,9 @@ def _cmd_dub(args: argparse.Namespace) -> None:
         cookies_from_browser=args.cookies_from_browser,
         cookies=args.cookies,
         use_resegmented=args.use_resegmented,
+        tempo_mode="fixed" if args.fixed_tempo else ("dynamic" if args.dynamic_tempo else "off"),
+        fixed_tempo=args.fixed_tempo,
+        max_tempo=args.max_tempo,
     )
     print(proj.summary())
 
@@ -246,7 +249,13 @@ def _cmd_tts(args: argparse.Namespace) -> None:
     )
     tts.unload_model(voice_prompt)
 
-    assemble.assemble_timeline(segment_info, original_duration, args.output)
+    tempo_mode = "fixed" if args.fixed_tempo else ("dynamic" if args.dynamic_tempo else "off")
+    assemble.assemble_timeline(
+        segment_info, original_duration, args.output,
+        tempo_mode=tempo_mode,
+        fixed_tempo=args.fixed_tempo,
+        max_tempo=args.max_tempo,
+    )
     print(f"Dubbed audio saved: {args.output}")
 
 
@@ -304,6 +313,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Translate and dub from the resegmented SRT (source.srt) instead of "
              "the raw WhisperX output (source.raw.srt). Resegmented SRT has "
              "shorter, more readable segments.",
+    )
+    p.add_argument(
+        "--dynamic-tempo", action="store_true",
+        help="Enable per-segment dynamic tempo adjustment to match original timing.",
+    )
+    p.add_argument(
+        "--fixed-tempo", type=float, default=None,
+        help="Apply a fixed tempo rate to all segments (e.g. 1.1). Overrides --dynamic-tempo.",
+    )
+    p.add_argument(
+        "--max-tempo", type=float, default=1.3,
+        help="Maximum speed-up factor for dynamic tempo (default: 1.3).",
     )
     _add_common_args(p)
 
@@ -411,6 +432,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--chatterbox-cfg", type=float, default=0.5,
         help="Chatterbox CFG weight (0.0-1.0, default 0.5). Lower for slower/expressive speech.",
+    )
+    p.add_argument(
+        "--dynamic-tempo", action="store_true",
+        help="Enable per-segment dynamic tempo adjustment to match original timing.",
+    )
+    p.add_argument(
+        "--fixed-tempo", type=float, default=None,
+        help="Apply a fixed tempo rate to all segments (e.g. 1.1). Overrides --dynamic-tempo.",
+    )
+    p.add_argument(
+        "--max-tempo", type=float, default=1.3,
+        help="Maximum speed-up factor for dynamic tempo (default: 1.3).",
     )
     _add_common_args(p)
 

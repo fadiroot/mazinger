@@ -69,13 +69,14 @@ def assemble_timeline(
     sample_rate: int = TARGET_SR,
     speed_threshold: float = 0.05,
     min_speed_ratio: float = 0.5,
+    tempo_mode: str = "off",
+    fixed_tempo: float | None = None,
+    max_tempo: float = 1.3,
 ) -> str:
     """Assemble per-segment TTS WAVs into a single time-aligned audio file.
 
     Each segment is placed at its SRT start time on a silence-filled
-    timeline matching *original_duration*.  Segments that are too long are
-    sped up; segments that are too short are **slowed down** to fill the
-    target duration so dubbed audio stays in sync with the original speaker.
+    timeline matching *original_duration*.
 
     Parameters:
         segment_info:      List of dicts from :func:`mazinger_dubber.tts.synthesize_segments`.
@@ -85,6 +86,12 @@ def assemble_timeline(
         speed_threshold:   Fractional tolerance before tempo-stretching is applied.
         min_speed_ratio:   Lowest allowed slowdown factor (default 0.5 = max 2× slower).
                            Prevents extreme stretching that sounds unnatural.
+        tempo_mode:        ``off`` — no tempo adjustment (default);
+                           ``dynamic`` — per-segment speed matching;
+                           ``fixed`` — apply *fixed_tempo* to every segment.
+        fixed_tempo:       Tempo rate applied to all segments when
+                           ``tempo_mode="fixed"`` (e.g. 1.1).
+        max_tempo:         Upper speed limit for dynamic mode (default 1.3).
 
     Returns:
         The *output_path*.
@@ -114,23 +121,24 @@ def assemble_timeline(
 
         speed_ratio = actual_dur / target_dur
 
-        if speed_ratio > 1.0 + speed_threshold:
-            # TTS too long → speed up
+        if tempo_mode == "fixed" and fixed_tempo is not None:
             stretched_path = seg["wav_path"].replace(".wav", "_stretched.wav")
-            audio = _tempo_stretch(seg["wav_path"], speed_ratio, stretched_path, sample_rate)
+            audio = _tempo_stretch(seg["wav_path"], fixed_tempo, stretched_path, sample_rate)
             stats["sped_up"] += 1
-        elif speed_ratio < 1.0 - speed_threshold:
-            # TTS too short → slow down to fill the target duration.
-            # Clamp to min_speed_ratio to avoid extreme / unnatural stretching.
-            effective_ratio = max(speed_ratio, min_speed_ratio)
-            slowed_path = seg["wav_path"].replace(".wav", "_slowed.wav")
-            audio = _tempo_stretch(seg["wav_path"], effective_ratio, slowed_path, sample_rate)
-            stats["slowed_down"] += 1
-            if effective_ratio != speed_ratio:
-                log.debug(
-                    "Seg %s: clamped slowdown %.2f→%.2f (min_speed_ratio=%.2f)",
-                    seg["idx"], speed_ratio, effective_ratio, min_speed_ratio,
-                )
+        elif tempo_mode == "dynamic":
+            if speed_ratio > 1.0 + speed_threshold:
+                effective_ratio = min(speed_ratio, max_tempo)
+                stretched_path = seg["wav_path"].replace(".wav", "_stretched.wav")
+                audio = _tempo_stretch(seg["wav_path"], effective_ratio, stretched_path, sample_rate)
+                stats["sped_up"] += 1
+            elif speed_ratio < 1.0 - speed_threshold:
+                effective_ratio = max(speed_ratio, min_speed_ratio)
+                slowed_path = seg["wav_path"].replace(".wav", "_slowed.wav")
+                audio = _tempo_stretch(seg["wav_path"], effective_ratio, slowed_path, sample_rate)
+                stats["slowed_down"] += 1
+            else:
+                audio = raw_audio
+                stats["ok"] += 1
         else:
             audio = raw_audio
             stats["ok"] += 1
