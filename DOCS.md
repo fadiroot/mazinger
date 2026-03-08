@@ -13,6 +13,7 @@ Detailed reference for installation options, pipeline stages, CLI commands, Pyth
   - [System Dependencies](#system-dependencies)
 - [Transcription Methods](#transcription-methods)
 - [TTS Engines](#tts-engines)
+- [Voice Profiles](#voice-profiles)
 - [Step-by-Step Usage](#step-by-step-usage)
   - [1. Download](#1-download)
   - [2. Transcribe](#2-transcribe)
@@ -190,6 +191,76 @@ uv pip install --no-build-isolation flash-attn   # or: pip install ".[flash-attn
 
 ---
 
+## Voice Profiles
+
+Voice profiles provide a convenient way to clone a speaker's voice without specifying `--voice-sample` and `--voice-script` manually. Profiles are hosted on a public HuggingFace dataset and downloaded automatically.
+
+**Dataset:** <https://huggingface.co/datasets/bakrianoo/mazinger-dubber-profiles>
+
+### Using a profile
+
+```bash
+# Full pipeline with a profile
+mazinger-dubber dub "https://youtube.com/watch?v=VIDEO_ID" --clone-profile abubakr
+
+# TTS sub-command with a profile
+mazinger-dubber tts --srt translated.srt --original-audio audio.mp3 \
+    --clone-profile abubakr -o dubbed.wav
+
+# Profile + override (use profile voice but custom script)
+mazinger-dubber dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile abubakr --voice-script my_custom_script.txt
+```
+
+### Python API
+
+```python
+from mazinger_dubber.profiles import fetch_profile
+
+# Downloads voice sample + script, converts audio to 16kHz mono WAV
+voice_path, script_path = fetch_profile("abubakr")
+# voice_path  -> /tmp/mazinger-dubber-profiles/abubakr/voice.wav
+# script_path -> /tmp/mazinger-dubber-profiles/abubakr/script.txt
+```
+
+Files are cached in `/tmp/mazinger-dubber-profiles/` and reused on subsequent calls.
+
+### Profile structure
+
+Each profile is a folder with two files:
+
+| File         | Description                                                      |
+|--------------|------------------------------------------------------------------|
+| `script.txt` | Plain-text transcript matching the voice sample                  |
+| `voice.*`    | Voice sample audio (`.wav`, `.m4a`, or `.mp3` — auto-detected)   |
+
+Non-WAV voice files are automatically converted to 16-kHz mono WAV for TTS compatibility.
+
+### Uploading a new profile
+
+```bash
+# 1. Log in to HuggingFace
+hf auth login
+
+# 2. Prepare your files
+mkdir -p profiles/my-name
+# Add voice.m4a (or .wav/.mp3) and script.txt
+
+# 3. Upload
+hf upload bakrianoo/mazinger-dubber-profiles \
+    ./profiles/my-name my-name \
+    --repo-type=dataset \
+    --commit-message "Add profile: my-name"
+```
+
+### Available profiles
+
+| Profile    | Language | Description      |
+|------------|----------|------------------|
+| `abubakr`  | English  | Abu Bakr Soliman |
+
+---
+
 ## Step-by-Step Usage
 
 Each stage has a CLI sub-command **and** a matching Python function.
@@ -306,6 +377,13 @@ mazinger-dubber tts \
     --original-audio audio.mp3 \
     --voice-sample reference.m4a \
     --voice-script reference_transcript.txt \
+    -o dubbed.wav
+
+# Using a voice profile instead of explicit files
+mazinger-dubber tts \
+    --srt translated.srt \
+    --original-audio audio.mp3 \
+    --clone-profile abubakr \
     -o dubbed.wav
 
 # Chatterbox
@@ -432,5 +510,6 @@ mazinger_dubber/
 ├── tts.py           # Qwen3-TTS / Chatterbox voice cloning
 ├── assemble.py      # time-aligned audio assembly
 ├── srt.py           # SRT parsing/formatting
+├── profiles.py      # HuggingFace voice profile downloader
 └── utils.py         # shared helpers
 ```

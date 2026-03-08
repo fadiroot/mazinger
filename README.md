@@ -64,17 +64,49 @@ mazinger-dubber dub "https://youtube.com/watch?v=VIDEO_ID" \
 
 Add `--tts-engine chatterbox` to use Chatterbox instead of Qwen.
 
+### Using a voice profile
+
+Instead of providing `--voice-sample` and `--voice-script` manually, use a named profile from the [voice profiles dataset](https://huggingface.co/datasets/bakrianoo/mazinger-dubber-profiles):
+
+```bash
+mazinger-dubber dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile abubakr \
+    --base-dir ./output
+```
+
+The voice sample and script are downloaded automatically (no auth required). You can also use `--clone-profile` with local files:
+
+```bash
+# Local video with a profile
+mazinger-dubber dub ./my_video.mp4 --clone-profile abubakr
+
+# Local audio with a profile
+mazinger-dubber dub ./my_audio.mp3 --clone-profile abubakr
+```
+
 ### Python
 
 ```python
 from mazinger_dubber import MazingerDubber
 
 dubber = MazingerDubber(openai_api_key="sk-...", base_dir="./output")
+
+# With explicit voice files
 proj = dubber.dub(
     source="https://youtube.com/watch?v=VIDEO_ID",
     voice_sample="reference.m4a",
     voice_script="reference_transcript.txt",
 )
+
+# Or resolve a profile first
+from mazinger_dubber.profiles import fetch_profile
+voice, script = fetch_profile("abubakr")
+proj = dubber.dub(
+    source="https://youtube.com/watch?v=VIDEO_ID",
+    voice_sample=voice,
+    voice_script=script,
+)
+
 print(proj.final_audio)  # ./output/projects/<slug>/tts/dubbed.wav
 ```
 
@@ -93,6 +125,18 @@ mazinger-dubber tts        ...
 ```
 
 Run any command with `--help` for all options. Full step-by-step guide in [DOCS.md](DOCS.md#step-by-step-usage).
+
+---
+
+## Voice Profiles
+
+Voice profiles let you reuse a speaker's voice sample and transcript without passing file paths every time. Profiles are stored on the [mazinger-dubber-profiles](https://huggingface.co/datasets/bakrianoo/mazinger-dubber-profiles) HuggingFace dataset.
+
+| Profile   | Language | Description      |
+|-----------|----------|------------------|
+| `abubakr` | English  | Abu Bakr Soliman |
+
+See the [profiles README](https://huggingface.co/datasets/bakrianoo/mazinger-dubber-profiles) for how to upload your own profile.
 
 ---
 

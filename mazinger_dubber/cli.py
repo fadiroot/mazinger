@@ -34,6 +34,19 @@ def _configure_logging(verbose: bool) -> None:
 def _cmd_dub(args: argparse.Namespace) -> None:
     from mazinger_dubber.pipeline import MazingerDubber
 
+    voice_sample = args.voice_sample
+    voice_script = args.voice_script
+
+    if args.clone_profile:
+        from mazinger_dubber.profiles import fetch_profile
+        pv, ps = fetch_profile(args.clone_profile)
+        voice_sample = voice_sample or pv
+        voice_script = voice_script or ps
+
+    if not voice_sample or not voice_script:
+        sys.exit("Error: --voice-sample and --voice-script are required "
+                 "(or use --clone-profile).")
+
     rs = MazingerDubber(
         openai_api_key=args.openai_api_key,
         openai_base_url=args.openai_base_url,
@@ -42,8 +55,8 @@ def _cmd_dub(args: argparse.Namespace) -> None:
     )
     proj = rs.dub(
         source=args.source,
-        voice_sample=args.voice_sample,
-        voice_script=args.voice_script,
+        voice_sample=voice_sample,
+        voice_script=voice_script,
         slug=args.slug,
         device=args.device,
         transcribe_method=args.transcribe_method,
@@ -230,7 +243,20 @@ def _cmd_tts(args: argparse.Namespace) -> None:
     srt_entries = parse_file(args.srt)
     original_duration = get_audio_duration(args.original_audio)
 
-    with open(args.voice_script, encoding="utf-8") as fh:
+    voice_sample = args.voice_sample
+    voice_script = args.voice_script
+
+    if getattr(args, "clone_profile", None):
+        from mazinger_dubber.profiles import fetch_profile
+        pv, ps = fetch_profile(args.clone_profile)
+        voice_sample = voice_sample or pv
+        voice_script = voice_script or ps
+
+    if not voice_sample or not voice_script:
+        sys.exit("Error: --voice-sample and --voice-script are required "
+                 "(or use --clone-profile).")
+
+    with open(voice_script, encoding="utf-8") as fh:
         ref_text = fh.read().strip()
 
     engine = getattr(args, "tts_engine", "qwen")
@@ -239,7 +265,7 @@ def _cmd_tts(args: argparse.Namespace) -> None:
         chatterbox_model=getattr(args, "chatterbox_model", "ResembleAI/chatterbox"),
     )
     voice_prompt = tts.create_voice_prompt(
-        model, args.voice_sample, ref_text,
+        model, voice_sample, ref_text,
         engine=engine,
         chatterbox_exaggeration=getattr(args, "chatterbox_exaggeration", 0.5),
         chatterbox_cfg=getattr(args, "chatterbox_cfg", 0.5),
@@ -274,8 +300,12 @@ def _build_parser() -> argparse.ArgumentParser:
     # -- dub (full pipeline) ---------------------------------------------------
     p = subparsers.add_parser("dub", help="Run the full dubbing pipeline.")
     p.add_argument("source", help="Video URL, local video path, or local audio path.")
-    p.add_argument("--voice-sample", required=True, help="Path to voice reference audio.")
-    p.add_argument("--voice-script", required=True, help="Path to voice reference transcript.")
+    p.add_argument("--clone-profile", default=None,
+                   help="Name of a voice profile to fetch from the HuggingFace dataset "
+                        "(e.g. 'abubakr'). Provides --voice-sample and --voice-script "
+                        "automatically.")
+    p.add_argument("--voice-sample", default=None, help="Path to voice reference audio.")
+    p.add_argument("--voice-script", default=None, help="Path to voice reference transcript.")
     p.add_argument("--slug", default=None, help="Override project slug.")
     p.add_argument("--device", default="cuda", help="Device: cuda or cpu.")
     p.add_argument(
@@ -414,8 +444,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p = subparsers.add_parser("tts", help="Synthesise dubbed audio from SRT.")
     p.add_argument("--srt", required=True, help="Path to translated SRT.")
     p.add_argument("--original-audio", required=True, help="Original audio (for duration matching).")
-    p.add_argument("--voice-sample", required=True, help="Path to voice reference audio.")
-    p.add_argument("--voice-script", required=True, help="Path to voice reference transcript.")
+    p.add_argument("--clone-profile", default=None,
+                   help="Name of a voice profile to fetch from the HuggingFace dataset "
+                        "(e.g. 'abubakr'). Provides --voice-sample and --voice-script "
+                        "automatically.")
+    p.add_argument("--voice-sample", default=None, help="Path to voice reference audio.")
+    p.add_argument("--voice-script", default=None, help="Path to voice reference transcript.")
     p.add_argument("-o", "--output", required=True, help="Output dubbed WAV path.")
     p.add_argument("--segments-dir", default="./tts_segments", help="Directory for segment WAVs.")
     p.add_argument("--tts-model", default="Qwen/Qwen3-TTS-12Hz-1.7B-Base", help="Qwen TTS model name.")
