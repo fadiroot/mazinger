@@ -80,6 +80,8 @@ class MazingerDubber:
         tempo_mode: str = "off",
         fixed_tempo: float | None = None,
         max_tempo: float = 1.3,
+        words_per_second: float | None = None,
+        duration_budget: float | None = None,
     ) -> ProjectPaths:
         """Run the full pipeline: download/ingest, transcribe, translate, and dub.
 
@@ -225,6 +227,8 @@ class MazingerDubber:
                 source_srt_text, description, thumb_paths, client,
                 llm_model=self.llm_model,
                 target_language=tts_language,
+                **(dict(words_per_second=words_per_second) if words_per_second is not None else {}),
+                **(dict(duration_budget=duration_budget) if duration_budget is not None else {}),
             )
             with open(proj.translated_raw_srt, "w", encoding="utf-8") as fh:
                 fh.write(translated_srt)

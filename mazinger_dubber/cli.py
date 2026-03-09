@@ -73,6 +73,8 @@ def _cmd_dub(args: argparse.Namespace) -> None:
         tempo_mode="fixed" if args.fixed_tempo else ("dynamic" if args.dynamic_tempo else "off"),
         fixed_tempo=args.fixed_tempo,
         max_tempo=args.max_tempo,
+        words_per_second=args.words_per_second,
+        duration_budget=args.duration_budget,
     )
     print(proj.summary())
 
@@ -201,6 +203,8 @@ def _cmd_translate(args: argparse.Namespace) -> None:
     result = translate_srt(
         srt_text, description, thumb_paths, client, llm_model=args.llm_model,
         target_language=args.target_language,
+        **(dict(words_per_second=args.words_per_second) if args.words_per_second is not None else {}),
+        **(dict(duration_budget=args.duration_budget) if args.duration_budget is not None else {}),
     )
     with open(args.output, "w", encoding="utf-8") as fh:
         fh.write(result)
@@ -357,6 +361,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-tempo", type=float, default=1.3,
         help="Maximum speed-up factor for dynamic tempo (default: 1.3).",
     )
+    p.add_argument(
+        "--words-per-second", type=float, default=None,
+        help="Target English speech rate in words/sec for translation duration matching (default: 2.0).",
+    )
+    p.add_argument(
+        "--duration-budget", type=float, default=None,
+        help="Fraction of time window to fill with translated speech, 0.0-1.0 (default: 0.80).",
+    )
     _add_common_args(p)
 
     # -- download ---------------------------------------------------------------
@@ -425,6 +437,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", required=True, help="Output SRT path.")
     p.add_argument("--target-language", default="English", help="Target language for translation (default: English).")
     p.add_argument("--llm-model", default="gpt-4.1", help="LLM model.")
+    p.add_argument(
+        "--words-per-second", type=float, default=None,
+        help="Target English speech rate in words/sec for duration matching (default: 2.0).",
+    )
+    p.add_argument(
+        "--duration-budget", type=float, default=None,
+        help="Fraction of time window to fill with translated speech, 0.0-1.0 (default: 0.80).",
+    )
     p.add_argument("--openai-api-key", default=None, help="OpenAI API key.")
     p.add_argument("--openai-base-url", default=None, help="Base URL for OpenAI-compatible API.")
     _add_common_args(p)

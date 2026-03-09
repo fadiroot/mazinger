@@ -16,6 +16,7 @@ from __future__ import annotations
 import gc
 import logging
 import os
+import re
 from typing import Any, Literal
 
 log = logging.getLogger(__name__)
@@ -42,6 +43,51 @@ def _segments_to_srt(segments: list[dict]) -> str:
         lines.append(seg["text"].strip())
         lines.append("")
     return "\n".join(lines)
+
+
+# ── Post-transcription text cleanup ──────────────────────────────────────────
+
+# Phantom subtitle that some Whisper models hallucinate on silence
+_PHANTOM_PATTERNS = [
+    re.compile(r"ترجمة\s+نانسي\s+قنقر"),
+]
+
+# Character repeated 3+ times consecutively → collapse to single occurrence
+_REPEATED_CHAR_RE = re.compile(r"(.)\1{2,}")
+
+# Same word repeated 3+ times consecutively → keep one
+_REPEATED_WORD_RE = re.compile(r"\b(\S+)(?:\s+\1){2,}\b")
+
+
+def _clean_text(text: str) -> str:
+    """Fix common Whisper transcription artifacts in a single subtitle line."""
+    # Remove phantom/hallucinated subtitles
+    for pat in _PHANTOM_PATTERNS:
+        text = pat.sub("", text)
+
+    # Collapse characters repeated 3+ times (e.g. هنااااااك → هناك)
+    text = _REPEATED_CHAR_RE.sub(r"\1", text)
+
+    # Collapse words repeated 3+ times (e.g. كذا كذا كذا كذا → كذا)
+    text = _REPEATED_WORD_RE.sub(r"\1", text)
+
+    # Normalize whitespace
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
+
+
+def _clean_segments(segments: list[dict]) -> list[dict]:
+    """Apply text cleanup to all segments and drop empty ones."""
+    cleaned: list[dict] = []
+    for seg in segments:
+        seg = dict(seg)
+        seg["text"] = _clean_text(seg["text"])
+        if seg["text"]:
+            cleaned.append(seg)
+    dropped = len(segments) - len(cleaned)
+    if dropped:
+        log.info("Dropped %d empty segments after text cleanup", dropped)
+    return cleaned
 
 
 # ── Resegmentation helpers ────────────────────────────────────────────────────
@@ -505,6 +551,9 @@ def transcribe(
         raise ValueError(f"Unknown transcription method: {method!r}. Use 'openai', 'faster-whisper', or 'whisperx'.")
 
     log.info("Transcription complete: %d segments, language=%s", len(raw_segments), detected_lang)
+
+    # Clean up common transcription artifacts
+    raw_segments = _clean_segments(raw_segments)
 
     # Save raw SRT
     base, ext = os.path.splitext(output_path)

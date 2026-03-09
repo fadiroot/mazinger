@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 log = logging.getLogger(__name__)
 
 PROFILES_REPO_URL = (
-    "https://huggingface.co/datasets/bakrianoo/mazinger-dubber-profiles/resolve/main"
+    "https://huggingface.co/datasets/bakrianoo/mazinger-dubber-profiles/resolve/main/profiles"
 )
 
 SCRIPT_FILENAME = "script.txt"

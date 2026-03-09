@@ -18,10 +18,25 @@ log = logging.getLogger(__name__)
 BLOCKS_PER_BATCH = 24
 OVERLAP_SIZE = 8
 
+# Average English speech rate in words per second (used for duration targeting).
+WORDS_PER_SECOND = 2.0
+# Fraction of duration-based word count to use as the target.  Keeps dubbed
+# audio from overrunning each segment's time window.
+DURATION_BUDGET = 0.80
 
-def _build_system_prompt(keywords: list[str], keypoints: list[str], target_language: str = "English") -> str:
+
+def _build_system_prompt(
+    keywords: list[str],
+    keypoints: list[str],
+    target_language: str = "English",
+    words_per_second: float = WORDS_PER_SECOND,
+    duration_budget: float = DURATION_BUDGET,
+) -> str:
     kw_examples = ", ".join(f'"{k}"' for k in keywords[:10])
     kp_summary = "; ".join(keypoints[:8])
+    budget_pct = int(duration_budget * 100)
+    example_dur = 20.0
+    example_target = int(example_dur * words_per_second * duration_budget)
 
     return f"""\
 You are a professional {target_language} dubbing script writer for technical / \
@@ -46,14 +61,20 @@ QUALITY GOALS:
 
 DURATION MATCHING (CRITICAL FOR DUBBING):
 - Each entry includes a [duration: Xs | target: ~N words] annotation.
-- English speech averages ~2.5 words per second. Your translation for each \
-  entry MUST contain approximately the target number of words so the dubbed \
-  audio fills the same time window as the original speech.
-- Example: a [duration: 20.0s | target: ~50 words] entry needs about 50 words.
-- This is the MOST IMPORTANT constraint. Short translations create awkward \
-  silences in the dubbed output. If you find yourself writing significantly \
-  fewer words than the target, expand your phrasing: add natural elaboration, \
-  gentle transitions, or brief clarifications the speaker implied.
+- The target word count is already set to ~{budget_pct}% of the available time window \
+  (at ~{words_per_second} {target_language} words/second). This {budget_pct}% budget ensures the generated \
+  dubbed voice finishes naturally BEFORE the next segment starts, leaving \
+  a small breathing room.
+- Your translation for each entry MUST stay WITHIN the target word count. \
+  Do NOT exceed it -- going over causes the dubbed audio to be cut off \
+  mid-sentence.
+- Example: a [duration: {example_dur:.1f}s | target: ~{example_target} words] entry needs around {example_target} \
+  words.
+- Aim for 90-100% of the target word count. Significantly fewer words \
+  create awkward silences; more words cause cut-off speech.
+- If the original content is too dense for the word budget, prioritise the \
+  core meaning and drop minor asides -- but never compress to less than \
+  ~70% of the target.
 - Do NOT pad with meaningless filler. Every word should contribute to a \
   natural, fluent delivery.
 
@@ -79,16 +100,17 @@ You will receive CONTEXT BEFORE and CONTEXT AFTER sections. They are for \
 reference only -- translate and return ONLY the MAIN BLOCK entries."""
 
 
-# Average English speech rate in words per second (used for duration targeting).
-WORDS_PER_SECOND = 2.5
 
-
-def _blocks_to_annotated_text(blocks: list[tuple[str, float, float, str]]) -> str:
+def _blocks_to_annotated_text(
+    blocks: list[tuple[str, float, float, str]],
+    words_per_second: float = WORDS_PER_SECOND,
+    duration_budget: float = DURATION_BUDGET,
+) -> str:
     """Like ``blocks_to_text`` but adds duration & word-count annotations."""
     parts: list[str] = []
     for idx, start, end, text in blocks:
         dur = end - start
-        target_words = max(1, round(dur * WORDS_PER_SECOND))
+        target_words = max(1, round(dur * words_per_second * duration_budget))
         parts.append(
             f"{idx}\n{format_time(start)} --> {format_time(end)}\n"
             f"[duration: {dur:.1f}s | target: ~{target_words} words]\n{text}\n"
@@ -168,6 +190,8 @@ def translate_srt(
     target_language: str = "English",
     blocks_per_batch: int = BLOCKS_PER_BATCH,
     overlap_size: int = OVERLAP_SIZE,
+    words_per_second: float = WORDS_PER_SECOND,
+    duration_budget: float = DURATION_BUDGET,
 ) -> str:
     """Translate an SRT file to the target language using batched LLM calls with visual context.
 
@@ -187,7 +211,11 @@ def translate_srt(
     """
     keywords = description.get("keywords", [])
     keypoints = description.get("keypoints", [])
-    system_prompt = _build_system_prompt(keywords, keypoints, target_language)
+    system_prompt = _build_system_prompt(
+        keywords, keypoints, target_language,
+        words_per_second=words_per_second,
+        duration_budget=duration_budget,
+    )
 
     all_blocks = parse_blocks(srt_text)
     log.info("Translating %d SRT blocks in batches of %d", len(all_blocks), blocks_per_batch)
@@ -209,7 +237,11 @@ def translate_srt(
         before_blocks = all_blocks[ctx_before_start:core_start]
         after_blocks = all_blocks[core_end:ctx_after_end]
 
-        batch_srt = _blocks_to_annotated_text(core_blocks)
+        batch_srt = _blocks_to_annotated_text(
+            core_blocks,
+            words_per_second=words_per_second,
+            duration_budget=duration_budget,
+        )
         context_before = blocks_to_text(before_blocks) if before_blocks else ""
         context_after = blocks_to_text(after_blocks) if after_blocks else ""
 
