@@ -179,6 +179,7 @@ class MazingerDubber:
                 device=device,
                 openai_api_key=self._api_key,
                 openai_base_url=self._base_url,
+                skip_resegment=not use_resegmented,
             )
 
         # 3. Extract thumbnails ------------------------------------------
@@ -210,6 +211,9 @@ class MazingerDubber:
         if skip_existing and os.path.exists(proj.description):
             log.info("Skipping description (file exists)")
             description = load_json(proj.description)
+        elif not has_video:
+            log.info("Skipping description (no video — thumbnails unavailable)")
+            description = {"title": "", "summary": "", "keypoints": [], "keywords": []}
         else:
             description = describe.describe_content(
                 source_srt_text, thumb_paths, client,
