@@ -96,6 +96,7 @@ def _yt_dlp_common_opts() -> dict[str, Any]:
         "noplaylist": True,
         # Enable the Node.js runtime for YouTube JS challenge solving.
         "js_runtimes": {"node": {}},
+        "remote_components": ["ejs:github"],
     }
 
 
