@@ -201,6 +201,9 @@ def add_translation(p: argparse.ArgumentParser) -> None:
                    help="Target speech rate in words/sec for duration matching (default: 2.0).")
     p.add_argument("--duration-budget", type=float, default=None,
                    help="Fraction of time window to fill with translated speech, 0.0-1.0 (default: 0.80).")
+    p.add_argument("--translate-technical-terms", action="store_true", default=False,
+                   help="Translate technical terms into the target language. "
+                        "When omitted, technical terms are kept in their original language.")
 
 
 def resolve_voice(args: argparse.Namespace) -> tuple[str | None, str | None]:
@@ -244,14 +247,14 @@ def add_subtitle_style(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("subtitle styling")
     g.add_argument("--subtitle-font", default="Arial",
                    help="Subtitle font family (default: Arial).")
-    g.add_argument("--subtitle-font-size", type=int, default=24,
-                   help="Subtitle font size (default: 24).")
+    g.add_argument("--subtitle-font-size", type=int, default=12,
+                   help="Subtitle font size (default: 12).")
     g.add_argument("--subtitle-font-color", default="white",
                    help="Subtitle text color: name or #RRGGBB (default: white).")
     g.add_argument("--subtitle-bg-color", default="black",
                    help="Subtitle background color (default: black).")
-    g.add_argument("--subtitle-bg-alpha", type=float, default=0.5,
-                   help="Subtitle background opacity, 0.0-1.0 (default: 0.5).")
+    g.add_argument("--subtitle-bg-alpha", type=float, default=0.2,
+                   help="Subtitle background opacity, 0.0-1.0 (default: 0.2).")
     g.add_argument("--subtitle-outline-color", default="black",
                    help="Subtitle outline color (default: black).")
     g.add_argument("--subtitle-outline-width", type=int, default=1,

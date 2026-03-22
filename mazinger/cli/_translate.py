@@ -60,6 +60,7 @@ def handler(args: argparse.Namespace) -> None:
         srt_text, description, thumb_paths, client, llm_model=args.llm_model,
         source_language=args.source_language,
         target_language=args.target_language,
+        translate_technical_terms=args.translate_technical_terms,
         **(dict(words_per_second=args.words_per_second) if args.words_per_second is not None else {}),
         **(dict(duration_budget=args.duration_budget) if args.duration_budget is not None else {}),
     )

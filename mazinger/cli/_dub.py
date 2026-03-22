@@ -72,6 +72,7 @@ def handler(args: argparse.Namespace) -> None:
         max_tempo=args.max_tempo,
         words_per_second=args.words_per_second,
         duration_budget=args.duration_budget,
+        translate_technical_terms=args.translate_technical_terms,
         subtitle_style=subtitle_style,
         subtitle_source=args.subtitle_source,
     )

@@ -542,10 +542,10 @@ burn_subtitles("video.mp4", "output.mp4", "translated.srt", style, audio_path="d
 | Parameter                  | Default   | Description                                |
 |----------------------------|-----------|--------------------------------------------|
 | `--subtitle-font`          | Arial     | Font family name                           |
-| `--subtitle-font-size`     | 24        | Font size in pixels                        |
+| `--subtitle-font-size`     | 12        | Font size in pixels                        |
 | `--subtitle-font-color`    | white     | Text color (name or `#RRGGBB`)             |
 | `--subtitle-bg-color`      | black     | Background box color                       |
-| `--subtitle-bg-alpha`      | 0.5       | Background opacity (0.0–1.0)               |
+| `--subtitle-bg-alpha`      | 0.2       | Background opacity (0.0–1.0)               |
 | `--subtitle-outline-color` | black     | Outline color                              |
 | `--subtitle-outline-width` | 1         | Outline thickness                          |
 | `--subtitle-position`      | bottom    | `top`, `center`, or `bottom`               |

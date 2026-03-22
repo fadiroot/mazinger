@@ -100,6 +100,7 @@ def _build_system_prompt(
     source_language: str = "auto",
     words_per_second: float = WORDS_PER_SECOND,
     duration_budget: float = DURATION_BUDGET,
+    translate_technical_terms: bool = False,
 ) -> str:
     kw_examples = ", ".join(f'"{ k}"' for k in keywords[:10])
     kp_summary = "; ".join(keypoints[:8])
@@ -162,8 +163,7 @@ STRUCTURAL RULES:
 2. Keep the EXACT SRT index numbers and timestamps -- only replace the \
    source text with {target_language}. Remove the [duration/target] \
    annotations from your output.
-3. Preserve these technical terms exactly: {kw_examples}. \
-   Use them verbatim when the speaker refers to them.
+3. {_technical_terms_instruction(kw_examples, target_language, translate_technical_terms)}
 4. The video covers: {kp_summary}. Use this to disambiguate unclear references.
 5. Return ONLY the translated SRT block for the MAIN BLOCK entries -- \
    no fences, no commentary.
@@ -177,6 +177,28 @@ STRUCTURAL RULES:
 You will receive CONTEXT BEFORE and CONTEXT AFTER sections. They are for \
 reference only -- translate and return ONLY the MAIN BLOCK entries."""
 
+
+
+def _technical_terms_instruction(
+    kw_examples: str,
+    target_language: str,
+    translate_technical_terms: bool,
+) -> str:
+    if translate_technical_terms:
+        return (
+            f"Translate technical terms into professional, widely-accepted "
+            f"{target_language} equivalents. Where a standard {target_language} "
+            f"term exists for a concept (e.g. {kw_examples}), use the "
+            f"{target_language} term. If no established translation exists, "
+            f"transliterate or keep the original and integrate it naturally "
+            f"into the {target_language} sentence."
+        )
+    return (
+        f"Keep technical terms in their original language: {kw_examples}. "
+        f"Embed them naturally within the {target_language} sentence so the "
+        f"result reads fluently — adjust surrounding grammar, prepositions, "
+        f"and word order as needed to accommodate the foreign-language term."
+    )
 
 
 def _blocks_to_annotated_text(
@@ -271,6 +293,7 @@ def translate_srt(
     overlap_size: int = OVERLAP_SIZE,
     words_per_second: float = WORDS_PER_SECOND,
     duration_budget: float = DURATION_BUDGET,
+    translate_technical_terms: bool = False,
     usage_tracker: LLMUsageTracker | None = None,
 ) -> str:
     """Translate an SRT file to the target language using batched LLM calls with visual context.
@@ -285,6 +308,10 @@ def translate_srt(
         target_language:  Target language for translation (default: ``English``).
         blocks_per_batch: Number of core SRT blocks per LLM call.
         overlap_size:     Number of context blocks before/after each batch.
+        translate_technical_terms: When ``True`` translate technical terms
+                          into professional target-language equivalents;
+                          when ``False`` (default) keep them in the original
+                          language.
 
     Returns:
         The translated SRT as a string.
@@ -299,6 +326,7 @@ def translate_srt(
         source_language=source_language,
         words_per_second=words_per_second,
         duration_budget=duration_budget,
+        translate_technical_terms=translate_technical_terms,
     )
 
     all_blocks = parse_blocks(srt_text)
