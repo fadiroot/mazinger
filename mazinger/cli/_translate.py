@@ -13,8 +13,6 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--description", required=True, help="Path to description JSON.")
     p.add_argument("--thumbnails-meta", default=None, help="Path to thumbnails meta.json.")
     p.add_argument("-o", "--output", required=True, help="Output SRT path.")
-    p.add_argument("--target-language", default="English",
-                   help="Target language for translation (default: English).")
     add_llm(p)
     add_translation(p)
     add_common(p)
@@ -32,6 +30,7 @@ def handler(args: argparse.Namespace) -> None:
 
     result = translate_srt(
         srt_text, description, thumb_paths, client, llm_model=args.llm_model,
+        source_language=args.source_language,
         target_language=args.target_language,
         **(dict(words_per_second=args.words_per_second) if args.words_per_second is not None else {}),
         **(dict(duration_budget=args.duration_budget) if args.duration_budget is not None else {}),

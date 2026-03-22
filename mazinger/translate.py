@@ -15,6 +15,74 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+SUPPORTED_LANGUAGES = (
+    "Arabic",
+    "Bengali",
+    "Chinese (Simplified)",
+    "Chinese (Traditional)",
+    "Czech",
+    "Danish",
+    "Dutch",
+    "English",
+    "Finnish",
+    "French",
+    "German",
+    "Greek",
+    "Hebrew",
+    "Hindi",
+    "Hungarian",
+    "Indonesian",
+    "Italian",
+    "Japanese",
+    "Korean",
+    "Malay",
+    "Norwegian",
+    "Persian",
+    "Polish",
+    "Portuguese",
+    "Romanian",
+    "Russian",
+    "Spanish",
+    "Swedish",
+    "Thai",
+    "Turkish",
+    "Ukrainian",
+    "Urdu",
+    "Vietnamese",
+)
+
+_LANG_LOOKUP = {lang.lower(): lang for lang in SUPPORTED_LANGUAGES}
+
+
+def _format_language_list() -> str:
+    """Format the supported language list as a readable multi-column block."""
+    col_width = max(len(lang) for lang in SUPPORTED_LANGUAGES) + 4
+    cols = 3
+    lines = []
+    for i in range(0, len(SUPPORTED_LANGUAGES), cols):
+        row = SUPPORTED_LANGUAGES[i:i + cols]
+        lines.append("  ".join(lang.ljust(col_width) for lang in row).rstrip())
+    return "\n".join(lines)
+
+
+def resolve_language(value: str) -> str:
+    """Return the canonical language name, or raise ``ValueError``."""
+    canonical = _LANG_LOOKUP.get(value.lower())
+    if canonical is None:
+        raise ValueError(
+            f"Unsupported language: '{value}'\n\n"
+            f"Supported languages:\n{_format_language_list()}"
+        )
+    return canonical
+
+
+def resolve_source_language(value: str) -> str:
+    """Like ``resolve_language`` but also accepts ``'auto'``."""
+    if value.lower() == "auto":
+        return "auto"
+    return resolve_language(value)
+
+
 BLOCKS_PER_BATCH = 24
 OVERLAP_SIZE = 8
 
@@ -29,18 +97,28 @@ def _build_system_prompt(
     keywords: list[str],
     keypoints: list[str],
     target_language: str = "English",
+    source_language: str = "auto",
     words_per_second: float = WORDS_PER_SECOND,
     duration_budget: float = DURATION_BUDGET,
 ) -> str:
-    kw_examples = ", ".join(f'"{k}"' for k in keywords[:10])
+    kw_examples = ", ".join(f'"{ k}"' for k in keywords[:10])
     kp_summary = "; ".join(keypoints[:8])
     budget_pct = int(duration_budget * 100)
     example_dur = 20.0
     example_target = int(example_dur * words_per_second * duration_budget)
 
+    if source_language == "auto":
+        source_ctx = (
+            " The source subtitles may contain speech in one or more "
+            "languages \u2014 identify the language(s) present and translate "
+            f"all content into {target_language}."
+        )
+    else:
+        source_ctx = f" The source subtitles are in {source_language}."
+
     return f"""\
 You are a professional {target_language} dubbing script writer for technical / \
-programming tutorial videos. You are given SRT subtitles with duration \
+programming tutorial videos.{source_ctx} You are given SRT subtitles with duration \
 annotations, video screenshots, and a keyword/keypoint list. Produce natural, \
 well-phrased {target_language} dubbing scripts -- not a literal word-for-word \
 translation, but also NOT a compressed summary.
@@ -187,6 +265,7 @@ def translate_srt(
     client: OpenAI,
     *,
     llm_model: str = "gpt-4.1",
+    source_language: str = "auto",
     target_language: str = "English",
     blocks_per_batch: int = BLOCKS_PER_BATCH,
     overlap_size: int = OVERLAP_SIZE,
@@ -210,10 +289,14 @@ def translate_srt(
     Returns:
         The translated SRT as a string.
     """
+    source_language = resolve_source_language(source_language)
+    target_language = resolve_language(target_language)
+
     keywords = description.get("keywords", [])
     keypoints = description.get("keypoints", [])
     system_prompt = _build_system_prompt(
         keywords, keypoints, target_language,
+        source_language=source_language,
         words_per_second=words_per_second,
         duration_budget=duration_budget,
     )

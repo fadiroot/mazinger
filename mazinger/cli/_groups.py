@@ -9,6 +9,22 @@ import sys
 DEFAULT_BASE_DIR = "./mazinger_output"
 
 
+def _language_type(value: str) -> str:
+    from mazinger.translate import resolve_language
+    try:
+        return resolve_language(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
+
+
+def _source_language_type(value: str) -> str:
+    from mazinger.translate import resolve_source_language
+    try:
+        return resolve_source_language(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
+
+
 def add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--base-dir", default=DEFAULT_BASE_DIR,
@@ -39,7 +55,8 @@ def add_voice(p: argparse.ArgumentParser) -> None:
 def add_tts_engine(p: argparse.ArgumentParser) -> None:
     p.add_argument("--tts-model", default="Qwen/Qwen3-TTS-12Hz-1.7B-Base", help="Qwen TTS model name.")
     p.add_argument("--chatterbox-model", default="ResembleAI/chatterbox", help="Chatterbox TTS model name.")
-    p.add_argument("--tts-language", default="English", help="Target TTS language.")
+    p.add_argument("--tts-language", default=None, type=_language_type,
+                   help="Target TTS language (defaults to --target-language).")
     p.add_argument(
         "--tts-engine", default="qwen", choices=["qwen", "chatterbox"],
         help="TTS engine: 'qwen' (Qwen3-TTS) or 'chatterbox' (ResembleAI Chatterbox).",
@@ -76,6 +93,14 @@ def add_cookies(p: argparse.ArgumentParser) -> None:
 
 
 def add_translation(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--source-language", default="auto", type=_source_language_type,
+        help="Source language for translation, or 'auto' to detect (default: auto).",
+    )
+    p.add_argument(
+        "--target-language", default="English", type=_language_type,
+        help="Target language for translation (default: English).",
+    )
     p.add_argument("--words-per-second", type=float, default=None,
                    help="Target speech rate in words/sec for duration matching (default: 2.0).")
     p.add_argument("--duration-budget", type=float, default=None,

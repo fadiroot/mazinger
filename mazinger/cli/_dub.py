@@ -53,6 +53,8 @@ def handler(args: argparse.Namespace) -> None:
         tts_model_name=args.tts_model,
         tts_language=args.tts_language,
         tts_engine=args.tts_engine,
+        source_language=args.source_language,
+        target_language=args.target_language,
         chatterbox_model=args.chatterbox_model,
         chatterbox_exaggeration=args.chatterbox_exaggeration,
         chatterbox_cfg=args.chatterbox_cfg,

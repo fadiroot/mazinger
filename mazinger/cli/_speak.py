@@ -51,7 +51,7 @@ def handler(args: argparse.Namespace) -> None:
     )
     segment_info = tts.synthesize_segments(
         model, voice_prompt, srt_entries, args.segments_dir,
-        language=args.tts_language,
+        language=args.tts_language or "English",
         force_reset=args.force_reset,
     )
     tts.unload_model(voice_prompt)

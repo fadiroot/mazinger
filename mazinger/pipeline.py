@@ -68,8 +68,10 @@ class MazingerDubber:
         whisper_model: str | None = None,
         tts_model_name: str = "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
         tts_dtype: str = "bfloat16",
-        tts_language: str = "English",
+        tts_language: str | None = None,
         tts_engine: str = "qwen",
+        source_language: str = "auto",
+        target_language: str = "English",
         chatterbox_model: str = "ResembleAI/chatterbox",
         chatterbox_exaggeration: float = 0.5,
         chatterbox_cfg: float = 0.5,
@@ -126,6 +128,9 @@ class MazingerDubber:
         from mazinger import download, transcribe, thumbnails, describe
         from mazinger import translate, resegment, tts, assemble
         from mazinger.srt import parse_file
+
+        if tts_language is None:
+            tts_language = target_language
 
         # -- Resolve project paths ----------------------------------------
         is_remote = download.is_url(source)
@@ -245,7 +250,8 @@ class MazingerDubber:
             translated_srt = translate.translate_srt(
                 source_srt_text, description, thumb_paths, client,
                 llm_model=self.llm_model,
-                target_language=tts_language,
+                source_language=source_language,
+                target_language=target_language,
                 usage_tracker=usage_tracker,
                 **(dict(words_per_second=words_per_second) if words_per_second is not None else {}),
                 **(dict(duration_budget=duration_budget) if duration_budget is not None else {}),
