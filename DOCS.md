@@ -483,6 +483,14 @@ mazinger subtitle video.mp4 --srt translated.srt -o output.mp4 \
     --subtitle-bg-color black --subtitle-bg-alpha 0.6 \
     --subtitle-position top \
     --subtitle-bold
+
+# Use a local font file
+mazinger subtitle video.mp4 --srt translated.srt -o output.mp4 \
+    --subtitle-font-file /path/to/MyFont-Regular.ttf
+
+# Download and use a Google Font
+mazinger subtitle video.mp4 --srt translated.srt -o output.mp4 \
+    --subtitle-google-font "Noto Sans Arabic" --subtitle-font-size 24
 ```
 
 ### Integrated with `dub`
@@ -535,17 +543,27 @@ burn_subtitles("video.mp4", "output.mp4", "translated.srt", style)
 
 # Subtitles + audio replacement in a single encoding pass
 burn_subtitles("video.mp4", "output.mp4", "translated.srt", style, audio_path="dubbed.wav")
+
+# Use a local font file (font family is auto-detected)
+style = SubtitleStyle(font_file="/path/to/NotoSansArabic-Regular.ttf", font_size=24)
+burn_subtitles("video.mp4", "output.mp4", "translated.srt", style)
+
+# Download and use a Google Font
+from mazinger.subtitle import download_google_font
+font_path = download_google_font("Noto Sans Arabic")
+style = SubtitleStyle(font_file=font_path, font_size=24)
+burn_subtitles("video.mp4", "output.mp4", "translated.srt", style)
 ```
 
 ### Styling options
 
 | Parameter                  | Default   | Description                                |
 |----------------------------|-----------|--------------------------------------------|
-| `--subtitle-font`          | Arial     | Font family name                           |
-| `--subtitle-font-size`     | 12        | Font size in pixels                        |
+| `--subtitle-font`          | Arial     | Font family name                           || `--subtitle-font-file`     | —         | Path to a local TTF/OTF font file          |
+| `--subtitle-google-font`   | —         | Google Font name (auto-downloaded)         || `--subtitle-font-size`     | 14        | Font size in pixels                        |
 | `--subtitle-font-color`    | white     | Text color (name or `#RRGGBB`)             |
 | `--subtitle-bg-color`      | black     | Background box color                       |
-| `--subtitle-bg-alpha`      | 0.2       | Background opacity (0.0–1.0)               |
+| `--subtitle-bg-alpha`      | 0.6       | Background opacity (0.0–1.0)               |
 | `--subtitle-outline-color` | black     | Outline color                              |
 | `--subtitle-outline-width` | 1         | Outline thickness                          |
 | `--subtitle-position`      | bottom    | `top`, `center`, or `bottom`               |

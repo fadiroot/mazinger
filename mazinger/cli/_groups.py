@@ -247,14 +247,18 @@ def add_subtitle_style(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("subtitle styling")
     g.add_argument("--subtitle-font", default="Arial",
                    help="Subtitle font family (default: Arial).")
-    g.add_argument("--subtitle-font-size", type=int, default=12,
-                   help="Subtitle font size (default: 12).")
+    g.add_argument("--subtitle-font-file", default=None,
+                   help="Path to a local TTF/OTF font file.")
+    g.add_argument("--subtitle-google-font", default=None,
+                   help="Google Font name to download and use (e.g. 'Noto Sans Arabic').")
+    g.add_argument("--subtitle-font-size", type=int, default=14,
+                   help="Subtitle font size (default: 14).")
     g.add_argument("--subtitle-font-color", default="white",
                    help="Subtitle text color: name or #RRGGBB (default: white).")
     g.add_argument("--subtitle-bg-color", default="black",
                    help="Subtitle background color (default: black).")
-    g.add_argument("--subtitle-bg-alpha", type=float, default=0.2,
-                   help="Subtitle background opacity, 0.0-1.0 (default: 0.2).")
+    g.add_argument("--subtitle-bg-alpha", type=float, default=0.6,
+                   help="Subtitle background opacity, 0.0-1.0 (default: 0.6).")
     g.add_argument("--subtitle-outline-color", default="black",
                    help="Subtitle outline color (default: black).")
     g.add_argument("--subtitle-outline-width", type=int, default=1,
@@ -281,9 +285,16 @@ def add_subtitles(p: argparse.ArgumentParser) -> None:
 
 def subtitle_style_from_args(args: argparse.Namespace):
     """Construct a :class:`~mazinger.subtitle.SubtitleStyle` from parsed CLI arguments."""
-    from mazinger.subtitle import SubtitleStyle
+    from mazinger.subtitle import SubtitleStyle, download_google_font
+
+    font_file = getattr(args, "subtitle_font_file", None)
+    google_font = getattr(args, "subtitle_google_font", None)
+    if google_font and not font_file:
+        font_file = download_google_font(google_font)
+
     return SubtitleStyle(
         font=args.subtitle_font,
+        font_file=font_file,
         font_size=args.subtitle_font_size,
         font_color=args.subtitle_font_color,
         bg_color=args.subtitle_bg_color,
