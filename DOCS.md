@@ -493,13 +493,13 @@ projects/<slug>/
 
 ## Configuration
 
-| Environment variable | Purpose                                          |
-|----------------------|--------------------------------------------------|
-| `OPENAI_API_KEY`     | API key (transcription + LLM tasks)              |
-| `OPENAI_BASE_URL`    | Base URL for OpenAI-compatible API providers     |
-| `OPENAI_MODEL`       | Default LLM model for translation/analysis       |
+| Environment variable | Purpose                                          | CLI flag            |
+|----------------------|--------------------------------------------------|---------------------|
+| `OPENAI_API_KEY`     | API key (transcription + LLM tasks)              | `--openai-api-key`  |
+| `OPENAI_BASE_URL`    | Base URL for OpenAI-compatible API providers     | `--openai-base-url` |
+| `OPENAI_MODEL`       | Default LLM model for translation/analysis       | `--llm-model`       |
 
-All settings can also be passed via constructor arguments or CLI flags.
+CLI flags take precedence over environment variables. If neither is set, `OPENAI_MODEL` defaults to `gpt-4.1`.
 
 ### Caching & Force Reset
 

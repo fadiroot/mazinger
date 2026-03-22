@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 DEFAULT_BASE_DIR = "./mazinger_output"
@@ -17,13 +18,13 @@ def add_common(p: argparse.ArgumentParser) -> None:
 
 
 def add_openai(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--openai-api-key", default=None, help="OpenAI API key.")
-    p.add_argument("--openai-base-url", default=None, help="Base URL for OpenAI-compatible API.")
+    p.add_argument("--openai-api-key", default=os.environ.get("OPENAI_API_KEY"), help="OpenAI API key.")
+    p.add_argument("--openai-base-url", default=os.environ.get("OPENAI_BASE_URL"), help="Base URL for OpenAI-compatible API.")
 
 
 def add_llm(p: argparse.ArgumentParser) -> None:
     add_openai(p)
-    p.add_argument("--llm-model", default="gpt-4.1", help="LLM model for translation/analysis.")
+    p.add_argument("--llm-model", default=os.environ.get("OPENAI_MODEL", "gpt-4.1"), help="LLM model for translation/analysis.")
 
 
 def add_voice(p: argparse.ArgumentParser) -> None:
