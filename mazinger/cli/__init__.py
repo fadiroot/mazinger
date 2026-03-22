@@ -18,6 +18,7 @@ from mazinger.cli import (
     _dub,
     _resegment,
     _speak,
+    _subtitle,
     _thumbnails,
     _transcribe,
     _translate,
@@ -32,6 +33,7 @@ _COMMANDS = (
     _translate,
     _resegment,
     _speak,
+    _subtitle,
 )
 
 

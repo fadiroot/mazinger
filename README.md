@@ -17,6 +17,7 @@ Download a video, transcribe it, translate the subtitles, and generate a voice-c
 | **Re-segment** | Split long subtitles into readable caption blocks     |
 | **TTS**        | Voice-cloned speech (Qwen3-TTS or Chatterbox)         |
 | **Assemble**   | Time-aligned final audio matching original duration   |
+| **Subtitles**  | Embed styled subtitles into the video (ffmpeg)        |
 | **LLM Usage**  | Per-stage token tracking with summary report          |
 
 Every stage works **independently** or chained through the `MazingerDubber` class / `mazinger` CLI.
@@ -80,6 +81,7 @@ pip install ".[all-chatterbox]"      # faster-whisper + Chatterbox TTS
 | Re-segment      | `mazinger resegment`   | ✅           | —                                               |
 | Speak (Qwen)    | `mazinger speak`       | —            | `tts` (+ CUDA GPU)                             |
 | Speak (Chatterbox) | `mazinger speak --tts-engine chatterbox` | — | `tts-chatterbox` (+ CUDA GPU) |
+| Subtitle embed  | `mazinger subtitle`    | ✅           | — (ffmpeg only)                                 |
 | Full dub (Qwen) | `mazinger dub`         | —            | `all-qwen` (+ CUDA GPU)                        |
 | Full dub (Chatterbox) | `mazinger dub --tts-engine chatterbox` | — | `all-chatterbox` (+ CUDA GPU) |
 
@@ -166,6 +168,20 @@ proj = dubber.dub(
 print(proj.final_audio)  # ./output/projects/<slug>/tts/dubbed.wav
 ```
 
+### Embed subtitles into the video
+
+```bash
+# During dubbing — adds translated subtitles to the output video
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile abubakr --embed-subtitles
+
+# Standalone — burn subtitles into any video + optionally replace audio
+mazinger subtitle video.mp4 --srt translated.srt -o output.mp4
+mazinger subtitle video.mp4 --srt translated.srt --audio dubbed.wav -o output.mp4
+```
+
+All `--subtitle-*` styling flags (font, size, color, position, etc.) work with both commands. See [DOCS.md](DOCS.md#subtitle-embedding) for the full reference.
+
 ### Run individual stages
 
 Each pipeline stage has its own sub-command:
@@ -178,6 +194,7 @@ mazinger describe   ...
 mazinger translate  ...
 mazinger resegment  ...
 mazinger speak      ...
+mazinger subtitle   ...
 ```
 
 Run any command with `--help` for all options. Full step-by-step guide in [DOCS.md](DOCS.md#step-by-step-usage).

@@ -19,6 +19,70 @@ log = logging.getLogger(__name__)
 _VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv", ".ts", ".m2ts"}
 _AUDIO_EXTS = {".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma", ".opus"}
 
+# -- Video quality helpers ------------------------------------------------
+
+_QUALITY_PRESETS: dict[str, int | None] = {
+    "low": 360,
+    "medium": 720,
+    "high": None,  # best available
+}
+
+
+def resolve_quality(quality: str | None) -> int | None:
+    """Map a quality specifier to a maximum video height (pixels).
+
+    Accepts named presets (``low``, ``medium``, ``high``) or a numeric
+    resolution (e.g. ``"1080"``).  Returns ``None`` for *best available*.
+    Defaults to ``medium`` when *quality* is ``None``.
+    """
+    if quality is None:
+        quality = "medium"
+    quality = quality.strip().lower()
+    if quality in _QUALITY_PRESETS:
+        return _QUALITY_PRESETS[quality]
+    try:
+        return int(quality)
+    except ValueError:
+        raise ValueError(
+            f"Invalid quality: {quality!r}. "
+            "Use low/medium/high or a resolution like 144, 720, 1080."
+        )
+
+
+def _build_format_string(max_height: int | None) -> str:
+    """Return a yt-dlp ``format`` string constrained to *max_height*.
+
+    Falls back to the best available stream when the requested height is
+    unavailable, ensuring a download always succeeds.
+    """
+    if max_height is None:
+        return "bestvideo*+bestaudio/best"
+    return (
+        f"bestvideo[height<={max_height}]+bestaudio"
+        f"/best[height<={max_height}]"
+        f"/bestvideo+bestaudio/best"
+    )
+
+
+def _probe_video_height(path: str) -> int | None:
+    """Return the pixel height of the first video stream, or ``None``."""
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=height",
+                "-of", "csv=p=0",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return int(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError):
+        return None
+
 
 def is_url(source: str) -> bool:
     """Return ``True`` if *source* looks like a URL rather than a local path."""
@@ -134,10 +198,17 @@ def download_video(
     url: str,
     output_path: str,
     *,
+    quality: str | None = None,
     cookies_from_browser: str | None = None,
     cookies: str | None = None,
 ) -> str:
-    """Download the best-quality MP4 from *url* into *output_path*.
+    """Download a video from *url* into *output_path*.
+
+    Parameters:
+        quality: Target quality — ``low``, ``medium`` (default), ``high``,
+                 or a numeric resolution like ``"1080"``.  When the exact
+                 resolution is unavailable the next-best option is used and
+                 a warning is logged.
 
     Skips the download when *output_path* already exists.
 
@@ -148,11 +219,16 @@ def download_video(
         log.info("Video already exists: %s", output_path)
         return output_path
 
+    max_height = resolve_quality(quality)
+    fmt = _build_format_string(max_height)
+    log.info(
+        "Requesting quality=%s (max_height=%s, format=%s)",
+        quality or "medium", max_height, fmt,
+    )
+
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     opts = {
-        # Prefer separate streams when available; fall back to a single best
-        # stream if muxable formats are restricted/unavailable.
-        "format": "bestvideo*+bestaudio/best",
+        "format": fmt,
         "merge_output_format": "mp4",
         "outtmpl": output_path,
         **_yt_dlp_common_opts(),
@@ -163,6 +239,22 @@ def download_video(
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
         ydl.download([url])
+
+    # -- Warn when actual resolution differs from requested ---------------
+    if max_height is not None:
+        actual = _probe_video_height(output_path)
+        if actual is not None and actual != max_height:
+            if actual > max_height:
+                log.warning(
+                    "Requested %dp but downloaded %dp (closest available).",
+                    max_height, actual,
+                )
+            else:
+                log.warning(
+                    "Requested %dp not available — downloaded %dp instead.",
+                    max_height, actual,
+                )
+
     log.info("Video saved: %s", output_path)
     return output_path
 

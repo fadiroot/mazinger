@@ -23,6 +23,7 @@ Detailed reference for installation options, pipeline stages, CLI commands, Pyth
   - [6. Re-segment](#6-re-segment)
   - [7. Synthesise & Assemble](#7-synthesise--assemble)
 - [Project Output Structure](#project-output-structure)
+- [Subtitle Embedding](#subtitle-embedding)
 - [Configuration](#configuration)
 - [Package Layout](#package-layout)
 
@@ -74,6 +75,7 @@ pip install ".[all-chatterbox]"  # faster-whisper + Chatterbox TTS
 | Re-segment      | `mazinger resegment`   | ✅           | —                                               |
 | Speak (Qwen)    | `mazinger speak`       | —            | `tts` (+ CUDA GPU)                             |
 | Speak (Chatterbox) | `mazinger speak --tts-engine chatterbox` | — | `tts-chatterbox` (+ CUDA GPU) |
+| Subtitle embed  | `mazinger subtitle`    | ✅           | — (ffmpeg only)                                 |
 | Full dub (Qwen) | `mazinger dub`         | —            | `all-qwen` (+ CUDA GPU)                        |
 | Full dub (Chatterbox) | `mazinger dub --tts-engine chatterbox` | — | `all-chatterbox` (+ CUDA GPU) |
 
@@ -458,6 +460,97 @@ assemble.assemble_timeline(segments, get_audio_duration("audio.mp3"), "dubbed.wa
 assemble.assemble_timeline(segments, get_audio_duration("audio.mp3"), "dubbed.wav",
                            tempo_mode="dynamic", max_tempo=1.3)
 ```
+
+---
+
+## Subtitle Embedding
+
+Embed styled subtitles directly into a video using the ffmpeg `subtitles` filter. Available as a standalone command or integrated into `mazinger dub`.
+
+### Standalone command
+
+```bash
+# Burn translated subtitles into a video (keeps original audio)
+mazinger subtitle video.mp4 --srt translated.srt -o output.mp4
+
+# Replace audio and add subtitles in one pass
+mazinger subtitle video.mp4 --srt translated.srt --audio dubbed.wav -o output.mp4
+
+# Custom styling
+mazinger subtitle video.mp4 --srt translated.srt -o output.mp4 \
+    --subtitle-font-size 32 \
+    --subtitle-font-color yellow \
+    --subtitle-bg-color black --subtitle-bg-alpha 0.6 \
+    --subtitle-position top \
+    --subtitle-bold
+```
+
+### Integrated with `dub`
+
+```bash
+# Dub and embed translated subtitles
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile abubakr --embed-subtitles
+
+# Dub with original-language subtitles
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile abubakr --embed-subtitles --subtitle-source original
+
+# Use a custom SRT file
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile abubakr --embed-subtitles --subtitle-source /path/to/custom.srt
+```
+
+`--embed-subtitles` implies video output — no need to add `--output-type video`.
+
+### Integrated with `translate`
+
+```bash
+# Translate and embed subtitles into the source video in one step
+mazinger translate --srt source.srt --description description.json \
+    -o translated.srt --embed-subtitles --video video.mp4
+
+# Custom video output path
+mazinger translate --srt source.srt --description description.json \
+    -o translated.srt --embed-subtitles --video video.mp4 --video-output subtitled.mp4
+```
+
+When `--video-output` is omitted, the video is saved alongside the SRT (e.g. `translated.mp4`).
+
+### Python API
+
+```python
+from mazinger.subtitle import SubtitleStyle, burn_subtitles
+
+style = SubtitleStyle(
+    font="DejaVu Sans",
+    font_size=28,
+    font_color="yellow",
+    position="bottom",
+    bold=True,
+)
+
+# Subtitles only (keeps original audio)
+burn_subtitles("video.mp4", "output.mp4", "translated.srt", style)
+
+# Subtitles + audio replacement in a single encoding pass
+burn_subtitles("video.mp4", "output.mp4", "translated.srt", style, audio_path="dubbed.wav")
+```
+
+### Styling options
+
+| Parameter                  | Default   | Description                                |
+|----------------------------|-----------|--------------------------------------------|
+| `--subtitle-font`          | Arial     | Font family name                           |
+| `--subtitle-font-size`     | 24        | Font size in pixels                        |
+| `--subtitle-font-color`    | white     | Text color (name or `#RRGGBB`)             |
+| `--subtitle-bg-color`      | black     | Background box color                       |
+| `--subtitle-bg-alpha`      | 0.5       | Background opacity (0.0–1.0)               |
+| `--subtitle-outline-color` | black     | Outline color                              |
+| `--subtitle-outline-width` | 1         | Outline thickness                          |
+| `--subtitle-position`      | bottom    | `top`, `center`, or `bottom`               |
+| `--subtitle-margin`        | 20        | Vertical margin from edge (pixels)         |
+| `--subtitle-bold`          | off       | Bold text                                  |
 
 ---
 

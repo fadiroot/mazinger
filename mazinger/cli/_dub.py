@@ -5,25 +5,25 @@ from __future__ import annotations
 import argparse
 
 from mazinger.cli._groups import (
-    add_common, add_cookies, add_llm, add_tempo, add_tts_engine,
-    add_transcription, add_translation, add_voice,
-    require_voice, tempo_mode_from_args,
+    add_common, add_llm, add_source, add_subtitles, add_tempo,
+    add_tts_engine, add_transcription, add_translation, add_voice,
+    require_voice, subtitle_style_from_args, tempo_mode_from_args,
 )
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser("dub", help="Run the full dubbing pipeline.")
-    p.add_argument("source", help="Video URL, local video path, or local audio path.")
+    add_source(p, required=True)
     add_voice(p)
-    p.add_argument("--slug", default=None, help="Override project slug.")
     add_transcription(p)
     add_tts_engine(p)
     add_llm(p)
-    add_cookies(p)
+    p.add_argument("--device", default="auto", help="Device: auto (default), cuda, or cpu.")
     p.add_argument("--use-resegmented", action="store_true",
                    help="Translate from the resegmented SRT instead of the raw transcript.")
     p.add_argument("--output-type", choices=["audio", "video"], default="audio",
                    help="Output type: 'audio' (default) or 'video'.")
+    add_subtitles(p)
     add_tempo(p)
     add_translation(p)
     p.add_argument("--force-reset", action="store_true",
@@ -33,8 +33,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 def handler(args: argparse.Namespace) -> None:
     from mazinger.pipeline import MazingerDubber
+    from mazinger.cli._groups import resolve_device
 
+    args.device = resolve_device(args.device)
     voice_sample, voice_script = require_voice(args)
+    subtitle_style = subtitle_style_from_args(args) if args.embed_subtitles else None
 
     dubber = MazingerDubber(
         openai_api_key=args.openai_api_key,
@@ -60,6 +63,7 @@ def handler(args: argparse.Namespace) -> None:
         chatterbox_cfg=args.chatterbox_cfg,
         cookies_from_browser=args.cookies_from_browser,
         cookies=args.cookies,
+        quality=args.quality,
         force_reset=args.force_reset,
         use_resegmented=args.use_resegmented,
         output_type=args.output_type,
@@ -68,5 +72,7 @@ def handler(args: argparse.Namespace) -> None:
         max_tempo=args.max_tempo,
         words_per_second=args.words_per_second,
         duration_budget=args.duration_budget,
+        subtitle_style=subtitle_style,
+        subtitle_source=args.subtitle_source,
     )
     print(proj.summary())

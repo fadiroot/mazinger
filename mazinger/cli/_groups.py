@@ -8,6 +8,103 @@ import sys
 
 DEFAULT_BASE_DIR = "./mazinger_output"
 
+log = __import__("logging").getLogger(__name__)
+
+
+def detect_device() -> str:
+    """Return 'cuda' if CUDA is available, otherwise 'cpu'."""
+    try:
+        import torch
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except ImportError:
+        return "cpu"
+
+
+def resolve_device(value: str) -> str:
+    """Resolve 'auto' to the actual device, pass others through."""
+    return detect_device() if value == "auto" else value
+
+
+def add_source(p: argparse.ArgumentParser, *, required: bool = False) -> None:
+    """Add optional/required positional *source* plus project-resolution flags."""
+    kw = {} if required else {"nargs": "?", "default": None}
+    p.add_argument("source", help="Video URL, local video path, or local audio path.", **kw)
+    p.add_argument("--slug", default=None, help="Override project slug.")
+    p.add_argument(
+        "--quality", default=None,
+        help="Video download quality: low (360p), medium (720p, default), "
+             "high (best), or a resolution like 144, 480, 1080.",
+    )
+    add_cookies(p)
+
+
+def resolve_project(args: argparse.Namespace):
+    """Download/ingest *source* and return a :class:`ProjectPaths`.
+
+    Returns ``None`` when no source was provided (caller should fall back to
+    explicit ``--srt`` / ``--video`` flags).
+    """
+    source = getattr(args, "source", None)
+    if not source:
+        return None
+
+    from mazinger import download
+    from mazinger.paths import ProjectPaths
+
+    is_remote = download.is_url(source)
+    slug = getattr(args, "slug", None)
+    base_dir = getattr(args, "base_dir", DEFAULT_BASE_DIR)
+
+    if slug is None:
+        if is_remote:
+            slug, _ = download.resolve_slug(
+                source,
+                cookies_from_browser=getattr(args, "cookies_from_browser", None),
+                cookies=getattr(args, "cookies", None),
+            )
+        else:
+            slug = download.slug_from_path(source)
+
+    proj = ProjectPaths(slug, base_dir=base_dir).ensure_dirs()
+    is_local_audio = not is_remote and download.is_audio_file(source)
+
+    if is_local_audio:
+        if not os.path.exists(proj.audio):
+            download.ingest_local_audio(source, proj.audio)
+    elif is_remote:
+        if not os.path.exists(proj.video):
+            download.download_video(
+                source, proj.video,
+                quality=getattr(args, "quality", None),
+                cookies_from_browser=getattr(args, "cookies_from_browser", None),
+                cookies=getattr(args, "cookies", None),
+            )
+        download.extract_audio(proj.video, proj.audio)
+    else:
+        if not os.path.exists(proj.video):
+            download.ingest_local_video(source, proj.video, proj.audio)
+        else:
+            download.extract_audio(proj.video, proj.audio)
+
+    log.info("Project: %s", proj.root)
+    return proj
+
+
+def ensure_transcription(proj, args: argparse.Namespace) -> None:
+    """Run transcription for *proj* if the SRT does not exist yet."""
+    if os.path.exists(proj.source_srt):
+        log.info("Skipping transcription (SRT exists)")
+        return
+    from mazinger.transcribe import transcribe
+    transcribe(
+        proj.audio, proj.source_srt,
+        method=getattr(args, "transcribe_method", "openai"),
+        model=getattr(args, "whisper_model", None),
+        device=getattr(args, "device", "cuda"),
+        openai_api_key=getattr(args, "openai_api_key", None),
+        openai_base_url=getattr(args, "openai_base_url", None),
+    )
+
 
 def _language_type(value: str) -> str:
     from mazinger.translate import resolve_language
@@ -82,7 +179,6 @@ def add_transcription(p: argparse.ArgumentParser) -> None:
         help="Transcription backend: 'openai', 'faster-whisper', or 'whisperx'.",
     )
     p.add_argument("--whisper-model", default=None, help="Whisper model name.")
-    p.add_argument("--device", default="cuda", help="Device: cuda or cpu.")
 
 
 def add_cookies(p: argparse.ArgumentParser) -> None:
@@ -141,3 +237,55 @@ def tempo_mode_from_args(args: argparse.Namespace) -> str:
     if args.dynamic_tempo:
         return "dynamic"
     return "auto"
+
+
+def add_subtitle_style(p: argparse.ArgumentParser) -> None:
+    """Add subtitle styling arguments."""
+    g = p.add_argument_group("subtitle styling")
+    g.add_argument("--subtitle-font", default="Arial",
+                   help="Subtitle font family (default: Arial).")
+    g.add_argument("--subtitle-font-size", type=int, default=24,
+                   help="Subtitle font size (default: 24).")
+    g.add_argument("--subtitle-font-color", default="white",
+                   help="Subtitle text color: name or #RRGGBB (default: white).")
+    g.add_argument("--subtitle-bg-color", default="black",
+                   help="Subtitle background color (default: black).")
+    g.add_argument("--subtitle-bg-alpha", type=float, default=0.5,
+                   help="Subtitle background opacity, 0.0-1.0 (default: 0.5).")
+    g.add_argument("--subtitle-outline-color", default="black",
+                   help="Subtitle outline color (default: black).")
+    g.add_argument("--subtitle-outline-width", type=int, default=1,
+                   help="Subtitle outline width (default: 1).")
+    g.add_argument("--subtitle-position", default="bottom",
+                   choices=["bottom", "top", "center"],
+                   help="Subtitle position (default: bottom).")
+    g.add_argument("--subtitle-margin", type=int, default=20,
+                   help="Subtitle vertical margin in pixels (default: 20).")
+    g.add_argument("--subtitle-bold", action="store_true",
+                   help="Use bold subtitle text.")
+
+
+def add_subtitles(p: argparse.ArgumentParser) -> None:
+    """Add --burn-subtitles flag, --subtitle-source, and styling arguments."""
+    p.add_argument("--embed-subtitles", action="store_true",
+                   help="Embed subtitles into the output video (implies --output-type video).")
+    p.add_argument("--subtitle-source", default="translated",
+                   help="SRT to burn: 'original', 'translated' (default), or a file path.")
+    add_subtitle_style(p)
+
+
+def subtitle_style_from_args(args: argparse.Namespace):
+    """Construct a :class:`~mazinger.subtitle.SubtitleStyle` from parsed CLI arguments."""
+    from mazinger.subtitle import SubtitleStyle
+    return SubtitleStyle(
+        font=args.subtitle_font,
+        font_size=args.subtitle_font_size,
+        font_color=args.subtitle_font_color,
+        bg_color=args.subtitle_bg_color,
+        bg_alpha=args.subtitle_bg_alpha,
+        outline_color=args.subtitle_outline_color,
+        outline_width=args.subtitle_outline_width,
+        position=args.subtitle_position,
+        margin_v=args.subtitle_margin,
+        bold=args.subtitle_bold,
+    )

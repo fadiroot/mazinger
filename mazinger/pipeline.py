@@ -77,6 +77,7 @@ class MazingerDubber:
         chatterbox_cfg: float = 0.5,
         cookies_from_browser: str | None = None,
         cookies: str | None = None,
+        quality: str | None = None,
         skip_existing: bool = True,
         force_reset: bool = False,
         use_resegmented: bool = False,
@@ -86,6 +87,8 @@ class MazingerDubber:
         words_per_second: float | None = None,
         duration_budget: float | None = None,
         output_type: str = "audio",
+        subtitle_style=None,
+        subtitle_source: str = "translated",
     ) -> ProjectPaths:
         """Run the full pipeline: download/ingest, transcribe, translate, and dub.
 
@@ -110,6 +113,9 @@ class MazingerDubber:
             chatterbox_cfg: CFG weight for Chatterbox (0.0-1.0).
             cookies_from_browser: yt-dlp ``--cookies-from-browser`` value.
             cookies:       Path to a Netscape cookie file for yt-dlp ``--cookies``.
+            quality:       Video download quality: ``low`` (360p), ``medium``
+                            (720p, default), ``high`` (best), or a numeric
+                            resolution like ``"1080"``.
             skip_existing:  When ``True``, skip stages whose outputs already exist.
             force_reset:    When ``True``, discard all cached/intermediate outputs
                             and re-run every stage from scratch.  Overrides
@@ -121,6 +127,11 @@ class MazingerDubber:
             output_type:    ``audio`` (default) — produce dubbed WAV only;
                             ``video`` — also mux the dubbed audio into the
                             source video (requires a video source).
+            subtitle_style: Optional :class:`~mazinger.subtitle.SubtitleStyle`
+                            for burning subtitles into the video.  Implies
+                            video output.
+            subtitle_source: SRT to burn — ``'translated'`` (default),
+                            ``'original'``, or a file path.
 
         Returns:
             The :class:`ProjectPaths` instance with all output paths populated.
@@ -175,6 +186,7 @@ class MazingerDubber:
                 download.download_video(
                     source,
                     proj.video,
+                    quality=quality,
                     cookies_from_browser=cookies_from_browser,
                     cookies=cookies,
                 )
@@ -306,12 +318,25 @@ class MazingerDubber:
         drift = abs(get_audio_duration(proj.final_audio) - original_duration)
         log.info("Done. Final audio: %s (drift: %.3fs)", proj.final_audio, drift)
 
-        # 9. Mux video (optional) ----------------------------------------
-        if output_type == "video":
-            if os.path.exists(proj.video):
-                assemble.mux_video(proj.video, proj.final_audio, proj.final_video)
+        # 9. Mux video / burn subtitles (optional) ----------------------
+        produce_video = output_type == "video" or subtitle_style is not None
+        if produce_video:
+            if not os.path.exists(proj.video):
+                log.warning("No source video available — skipping video output")
+            elif subtitle_style:
+                from mazinger.subtitle import burn_subtitles
+                if subtitle_source == "translated":
+                    srt_path = proj.final_srt
+                elif subtitle_source == "original":
+                    srt_path = proj.source_srt
+                else:
+                    srt_path = subtitle_source
+                burn_subtitles(
+                    proj.video, proj.final_video, srt_path,
+                    subtitle_style, audio_path=proj.final_audio,
+                )
             else:
-                log.warning("No source video available — skipping video muxing")
+                assemble.mux_video(proj.video, proj.final_audio, proj.final_video)
 
         # 10. LLM usage report -------------------------------------------
         if usage_tracker.records:
