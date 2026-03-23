@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo-main-refined.png" alt="Mazinger Dubber" width="200" height="200" />
+  <img src="assets/main-logo-refined.png" alt="Mazinger Dubber" width="200" height="200" />
 </p>
 
 <h1 align="center">Mazinger Dubber — Documentation</h1>
