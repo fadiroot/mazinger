@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bakrianoo/mazinger/main/docs/assets/main-logo-refined.png" alt="Mazinger Dubber" width="320" height="320" />
+  <img src="https://raw.githubusercontent.com/bakrianoo/mazinger/refs/heads/master/docs/assets/main-logo-refined.png" alt="Mazinger Dubber" width="320" height="320" />
 </p>
 
 <h1 align="center">Mazinger Dubber</h1>
