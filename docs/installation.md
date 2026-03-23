@@ -5,7 +5,7 @@
 The base package covers video download, cloud transcription (OpenAI Whisper API), thumbnail extraction, content description, translation, re-segmentation, and subtitle embedding. No GPU required.
 
 ```bash
-pip install .
+pip install mazinger
 ```
 
 Core dependencies: `yt-dlp`, `openai`, `json-repair`, `Pillow`, `soundfile`, `numpy`, `tqdm`.
@@ -15,8 +15,8 @@ Core dependencies: `yt-dlp`, `openai`, `json-repair`, `Pillow`, `soundfile`, `nu
 ### Local Transcription
 
 ```bash
-pip install ".[transcribe-faster]"      # faster-whisper — CTranslate2, ~4× faster than Whisper
-pip install ".[transcribe-whisperx]"    # WhisperX — best word-level alignment via wav2vec2
+pip install "mazinger[transcribe-faster]"      # faster-whisper — CTranslate2, ~4× faster than Whisper
+pip install "mazinger[transcribe-whisperx]"    # WhisperX — best word-level alignment via wav2vec2
 ```
 
 Both require a CUDA GPU (or can fall back to CPU at reduced speed).
@@ -24,15 +24,15 @@ Both require a CUDA GPU (or can fall back to CPU at reduced speed).
 ### Voice Synthesis (TTS)
 
 ```bash
-pip install ".[tts]"                    # Qwen3-TTS — needs a voice sample + transcript
-pip install ".[tts-chatterbox]"         # Chatterbox — needs only a voice sample, has emotion control
+pip install "mazinger[tts]"                    # Qwen3-TTS — needs a voice sample + transcript
+pip install "mazinger[tts-chatterbox]"         # Chatterbox — needs only a voice sample, has emotion control
 ```
 
 ### Full Bundles
 
 ```bash
-pip install ".[all-qwen]"              # WhisperX + Qwen3-TTS
-pip install ".[all-chatterbox]"        # faster-whisper + Chatterbox
+pip install "mazinger[all-qwen]"              # WhisperX + Qwen3-TTS
+pip install "mazinger[all-chatterbox]"        # faster-whisper + Chatterbox
 ```
 
 ## Compatibility Matrix
@@ -87,7 +87,7 @@ uv pip install "numpy>=1.26"
 uv pip install torch torchaudio \
     --index-url https://download.pytorch.org/whl/cu128
 
-uv pip install --no-build-isolation ".[all-chatterbox]"
+uv pip install --no-build-isolation "mazinger[all-chatterbox]"
 ```
 
 ### Fresh venv with Qwen (Python 3.12)
@@ -104,7 +104,7 @@ torch>=2.0
 torchaudio>=2.0
 EOF
 
-uv pip install --override /tmp/qwen_overrides.txt ".[all-qwen]"
+uv pip install --override /tmp/qwen_overrides.txt "mazinger[all-qwen]"
 ```
 
 ### Google Colab — Chatterbox
@@ -121,7 +121,7 @@ EOF
 
 uv pip install --system --no-build-isolation \
     --override /tmp/cb_overrides.txt \
-    ".[all-chatterbox]"
+    "mazinger[all-chatterbox]"
 ```
 
 ### Google Colab — Qwen
@@ -134,7 +134,7 @@ EOF
 
 uv pip install --system \
     --override /tmp/qwen_overrides.txt \
-    ".[all-qwen]"
+    "mazinger[all-qwen]"
 ```
 
 The overrides prevent `chatterbox-tts` and `qwen-tts` from downgrading PyTorch and other packages that Colab ships with pre-configured CUDA support.
@@ -150,5 +150,5 @@ uv pip install --no-build-isolation flash-attn
 Or include it as an extra:
 
 ```bash
-pip install ".[flash-attn]"
+pip install "mazinger[flash-attn]"
 ```

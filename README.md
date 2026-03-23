@@ -36,23 +36,23 @@ Every stage can run independently or as part of the full pipeline. Interrupted r
 The base install covers download, transcription (cloud), thumbnails, description, translation, re-segmentation, and subtitle embedding. No GPU needed.
 
 ```bash
-pip install .
+pip install mazinger
 ```
 
 Add local transcription or TTS as optional extras:
 
 ```bash
 # Local transcription
-pip install ".[transcribe-faster]"      # faster-whisper (Chatterbox-compatible)
-pip install ".[transcribe-whisperx]"    # WhisperX (best word-level alignment)
+pip install "mazinger[transcribe-faster]"      # faster-whisper (Chatterbox-compatible)
+pip install "mazinger[transcribe-whisperx]"    # WhisperX (best word-level alignment)
 
 # Voice synthesis
-pip install ".[tts]"                    # Qwen3-TTS (voice sample + transcript)
-pip install ".[tts-chatterbox]"         # Chatterbox (voice sample only, emotion control)
+pip install "mazinger[tts]"                    # Qwen3-TTS (voice sample + transcript)
+pip install "mazinger[tts-chatterbox]"         # Chatterbox (voice sample only, emotion control)
 
 # Full bundles
-pip install ".[all-qwen]"              # WhisperX + Qwen3-TTS
-pip install ".[all-chatterbox]"        # faster-whisper + Chatterbox
+pip install "mazinger[all-qwen]"              # WhisperX + Qwen3-TTS
+pip install "mazinger[all-chatterbox]"        # faster-whisper + Chatterbox
 ```
 
 > Qwen and Chatterbox require different `transformers` versions and cannot share an environment.
