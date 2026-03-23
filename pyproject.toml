@@ -3,8 +3,8 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mazinger-dubber"
-version = "1.6.0"
+name = "mazinger"
+version = "1.7.0"
 description = "End-to-end video dubbing pipeline: transcribe, translate, and voice-clone."
 readme = "README.md"
 license = {text = "MIT"}
@@ -35,7 +35,7 @@ transcribe-whisperx = [
 ]
 # Alias for backwards compatibility (points to whisperx)
 transcribe = [
-    "mazinger-dubber[transcribe-whisperx]",
+    "mazinger[transcribe-whisperx]",
 ]
 # TTS with Qwen (compatible with transcribe-whisperx and transcribe-faster)
 tts = [
@@ -65,11 +65,11 @@ audio-enhance = [
 ]
 # Full pipeline with Qwen TTS — same as bare install (kept as alias)
 all-qwen = [
-    "mazinger-dubber[transcribe-whisperx,tts,audio-enhance]",
+    "mazinger[transcribe-whisperx,tts,audio-enhance]",
 ]
 # Full pipeline with Chatterbox TTS + faster-whisper (fully compatible)
 all-chatterbox = [
-    "mazinger-dubber[transcribe-faster,tts-chatterbox,audio-enhance]",
+    "mazinger[transcribe-faster,tts-chatterbox,audio-enhance]",
 ]
 
 [project.scripts]
