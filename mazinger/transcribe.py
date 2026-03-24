@@ -24,6 +24,9 @@ log = logging.getLogger(__name__)
 # Supported transcription methods
 TranscribeMethod = Literal["openai", "faster-whisper", "whisperx"]
 
+# Module-level cache for faster-whisper models — avoids reloading across runs
+_whisper_cache: dict[str, Any] = {}
+
 
 # ── SRT formatting (self-contained so this module has no intra-package deps) ──
 
@@ -360,8 +363,14 @@ def _transcribe_faster_whisper(
         model, device, batch_size, compute_type,
     )
 
-    # Load model
-    whisper_model = WhisperModel(model, device=device, compute_type=compute_type)
+    # Load model (reuse cached instance when available)
+    cache_key = f"{model}|{device}|{compute_type}"
+    if cache_key in _whisper_cache:
+        log.info("Reusing cached faster-whisper model: %s", cache_key)
+        whisper_model = _whisper_cache[cache_key]
+    else:
+        whisper_model = WhisperModel(model, device=device, compute_type=compute_type)
+        _whisper_cache[cache_key] = whisper_model
 
     # Use batched inference for better performance
     batched_model = BatchedInferencePipeline(model=whisper_model)
@@ -397,9 +406,8 @@ def _transcribe_faster_whisper(
 
     log.info("faster-whisper transcription complete: %d segments", len(raw_segments))
 
-    # Clean up
-    del batched_model, whisper_model
-    gc.collect()
+    # Keep model in cache for reuse; only clean up the batched pipeline
+    del batched_model
 
     return raw_segments, detected_lang
 

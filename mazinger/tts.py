@@ -13,6 +13,14 @@ from tqdm.auto import tqdm
 
 log = logging.getLogger(__name__)
 
+# Module-level model cache — keeps loaded TTS models in memory for reuse
+_model_cache: dict[str, Any] = {}
+
+
+def _cache_key(engine: str, model_name: str, device: str, dtype: str) -> str:
+    """Build a unique key for the model cache."""
+    return f"{engine}|{model_name}|{device}|{dtype}"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  TTS Engine Type
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -177,10 +185,19 @@ def load_model(
     Returns:
         The loaded model instance.
     """
+    name = model_name if engine == "qwen" else chatterbox_model
+    key = _cache_key(engine, name, device, dtype)
+    if key in _model_cache:
+        log.info("Reusing cached TTS model: %s", key)
+        return _model_cache[key]
+
     if engine == "qwen":
-        return _load_qwen_model(model_name, device, dtype)
+        model = _load_qwen_model(model_name, device, dtype)
     else:  # chatterbox
-        return _load_chatterbox_model(device, chatterbox_model)
+        model = _load_chatterbox_model(device, chatterbox_model)
+
+    _model_cache[key] = model
+    return model
 
 
 def create_voice_prompt(
@@ -335,17 +352,29 @@ def synthesize_segments(
     return segment_info
 
 
-def unload_model(model: Any) -> None:
-    """Delete the model and free GPU memory."""
+def unload_model(model: Any, *, force: bool = False) -> None:
+    """Unload a TTS model and free GPU memory.
+
+    By default the model is kept in the module-level cache so subsequent
+    calls to :func:`load_model` with the same parameters return instantly.
+    Pass ``force=True`` to actually remove the model from memory.
+    """
+    if not force:
+        log.info("TTS model kept in memory for reuse (pass force=True to free)")
+        return
+
     import torch
 
-    # Handle TTSWrapper case
+    actual_model = model.model if isinstance(model, TTSWrapper) else model
+
+    # Remove from cache
+    keys_to_remove = [k for k, v in _model_cache.items() if v is actual_model]
+    for k in keys_to_remove:
+        del _model_cache[k]
+
     if isinstance(model, TTSWrapper):
-        actual_model = model.model
         del model
-        del actual_model
-    else:
-        del model
+    del actual_model
 
     gc.collect()
     torch.cuda.empty_cache()
