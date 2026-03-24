@@ -639,6 +639,9 @@ def transcribe(
             base_url=openai_base_url,
             llm_model=llm_model,
         )
+        # Drop word-level timestamps — they no longer match the refined text
+        for seg in raw_segments:
+            seg.pop("words", None)
 
     # Save raw SRT
     base, ext = os.path.splitext(output_path)
