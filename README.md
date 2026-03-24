@@ -150,6 +150,7 @@ Full documentation lives in the [`docs/`](docs/) directory:
 | [Subtitle Styling](docs/subtitle-styling.md) | Fonts, colors, positioning, RTL support, Google Fonts |
 | [Configuration](docs/configuration.md) | Environment variables, caching, tempo control, LLM usage tracking |
 | [Project Structure](docs/project-structure.md) | Output directory layout and file naming conventions |
+| [YouTube Cookies](docs/youtube-cookies.md) | How to export and pass cookies for age-restricted or region-locked videos |
 
 ## License
 
