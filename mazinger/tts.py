@@ -113,6 +113,32 @@ def _synthesize_qwen(
     return wavs[0], sr
 
 
+VOICE_DESIGN_MODEL = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"
+
+
+def design_voice(
+    text: str,
+    language: str,
+    instruct: str,
+    *,
+    device: str = "cuda:0",
+    dtype: str = "bfloat16",
+) -> tuple[np.ndarray, int]:
+    """Synthesise a reference clip using the Qwen3-TTS VoiceDesign model.
+
+    The clip matches the voice described by *instruct* and is intended as
+    input for :func:`create_voice_clone_prompt`.  The VoiceDesign model is
+    freed from GPU memory after generation.
+    """
+    validate_language(language)
+    model = load_model(VOICE_DESIGN_MODEL, device=device, dtype=dtype, engine="qwen")
+    wavs, sr = model.generate_voice_design(
+        text=text, language=language, instruct=instruct,
+    )
+    unload_model(model, force=True)
+    return wavs[0], sr
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Chatterbox Backend
 # ═══════════════════════════════════════════════════════════════════════════════

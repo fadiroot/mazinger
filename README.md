@@ -25,7 +25,7 @@ Mazinger chains nine stages into a single pipeline:
 4. **Describe** — analyze the transcript and thumbnails to produce a structured summary (title, key points, keywords)
 5. **Translate** — translate the SRT into another language with duration-aware word budgets
 6. **Re-segment** — merge fragments and split oversized subtitles for readability
-7. **Speak** — synthesize voice-cloned speech for every subtitle entry (Qwen3-TTS or Chatterbox)
+7. **Speak** — synthesize voice-cloned speech for every subtitle entry (Qwen3-TTS or Chatterbox), with 16 pre-defined voice themes or your own voice sample
 8. **Assemble** — place each audio segment on the original timeline with optional tempo adjustment, loudness matching, and background audio mixing
 9. **Subtitle** — burn styled subtitles into the video and/or mux the new audio track
 
@@ -93,6 +93,20 @@ mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
     --target-language Arabic
 ```
 
+### Use a voice theme (no files needed)
+
+Choose from 16 pre-defined voice themes — no voice sample or profile download required:
+
+`narrator-m/f` · `young-m/f` · `deep-m/f` · `warm-m/f` · `news-m/f` · `storyteller-m/f` · `kid-m/f` · `teen-m/f`
+
+```bash
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --voice-theme narrator-m \
+    --target-language Spanish
+```
+
+List all themes with `mazinger profile list`. Generate a reusable profile with `mazinger profile generate`. See [Voice Profiles](docs/voice-profiles.md) for details.
+
 ### Produce a video with burned subtitles
 
 ```bash
@@ -123,6 +137,15 @@ from mazinger import MazingerDubber
 
 dubber = MazingerDubber(openai_api_key="sk-...", base_dir="./output")
 
+# With a voice theme (simplest)
+proj = dubber.dub(
+    source="https://youtube.com/watch?v=VIDEO_ID",
+    voice_theme="narrator-m",
+    target_language="Spanish",
+    output_type="video",
+)
+
+# Or with explicit voice files
 proj = dubber.dub(
     source="https://youtube.com/watch?v=VIDEO_ID",
     voice_sample="speaker.m4a",

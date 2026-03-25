@@ -30,6 +30,9 @@ All output files are organized under a single root directory. Each video gets it
         │   │   └── ...
         │   ├── dubbed.wav          # Assembled dubbed audio
         │   └── dubbed.mp4          # Final video with dubbed audio and subtitles
+        ├── voice_profile/              # Only when using --voice-theme
+        │   ├── voice.wav           # Generated voice reference audio
+        │   └── script.txt          # Transcript of the generated voice
         └── llm_usage.json          # Token usage records for all LLM calls
 ```
 
@@ -105,6 +108,15 @@ Example `description.json`:
 | `segments/seg_NNNN.wav` | speak | One WAV file per subtitle entry |
 | `dubbed.wav` | assemble | All segments placed on a timeline matching the original duration |
 | `dubbed.mp4` | subtitle / mux | Final video with dubbed audio and optional burned subtitles |
+
+### voice_profile/
+
+Created only when using `--voice-theme`. The generated profile is saved here and reused on subsequent runs of the same project.
+
+| File | Created by | Description |
+|------|-----------|-------------|
+| `voice.wav` | speak / dub (via VoiceDesign) | Generated voice reference audio from the selected theme |
+| `script.txt` | speak / dub (via VoiceDesign) | Transcript matching the generated voice audio |
 
 ### llm_usage.json
 

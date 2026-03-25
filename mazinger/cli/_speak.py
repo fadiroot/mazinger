@@ -82,10 +82,31 @@ def handler(args: argparse.Namespace) -> None:
 
     srt_entries = parse_file(srt_path)
     original_duration = get_audio_duration(original_audio)
-    voice_sample, voice_script = require_voice(args)
 
-    with open(voice_script, encoding="utf-8") as fh:
-        ref_text = fh.read().strip()
+    voice_theme = getattr(args, "voice_theme", None)
+    if voice_theme and proj:
+        from mazinger.profiles import generate_profile, _load_local_profile
+        from mazinger.tts import validate_language
+        profile_dir = proj.voice_profile_dir
+        profile_wav = os.path.join(profile_dir, "voice.wav")
+        language = getattr(args, "tts_language", None) or getattr(args, "target_language", "English")
+        validate_language(language)
+        device = args.device.split(":")[0] + ":0" if ":" not in args.device else args.device
+        if os.path.isfile(profile_wav):
+            voice_sample, voice_script = _load_local_profile(profile_dir)
+        else:
+            voice_sample, voice_script = generate_profile(
+                voice_theme, language, profile_dir,
+                device=device, dtype=args.dtype,
+            )
+    else:
+        voice_sample, voice_script = require_voice(args)
+
+    if os.path.isfile(voice_script):
+        with open(voice_script, encoding="utf-8") as fh:
+            ref_text = fh.read().strip()
+    else:
+        ref_text = voice_script.strip()
 
     engine = args.tts_engine
     model = tts.load_model(

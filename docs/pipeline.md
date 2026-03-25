@@ -104,10 +104,12 @@ Generates a WAV file for each subtitle entry using voice-cloned TTS.
 
 **Chatterbox** requires only a voice sample. It supports 23 languages and has emotion control parameters (`exaggeration` and `cfg`).
 
+**Voice themes** offer a third option: instead of providing a voice sample, pass `--voice-theme` to select from 16 pre-defined themes (e.g. `narrator-m`, `warm-f`, `kid-m`). The theme generates a reference voice via Qwen3-TTS VoiceDesign. When used with `dub` or `speak`, the generated profile is saved to the project's `voice_profile/` directory and reused on subsequent runs.
+
 Each segment is saved individually (`seg_0001.wav`, `seg_0002.wav`, ...) so interrupted runs can resume without re-synthesizing completed segments.
 
-**Inputs:** `subtitles/translated.srt`, voice sample + optional transcript
-**Outputs:** `tts/segments/seg_NNNN.wav`
+**Inputs:** `subtitles/translated.srt`, voice sample + optional transcript (or `--voice-theme`)
+**Outputs:** `tts/segments/seg_NNNN.wav`, optionally `voice_profile/voice.wav` and `voice_profile/script.txt`
 
 ### 8. Assemble
 

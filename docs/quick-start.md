@@ -24,6 +24,33 @@ mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
     --output-type video
 ```
 
+## Use a Voice Theme (Simplest Approach)
+
+Voice themes let you dub without providing any voice files. Choose from 16 pre-defined themes and Mazinger generates a voice automatically:
+
+```bash
+# List all available themes
+mazinger profile list
+
+# Dub using a theme
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --voice-theme narrator-m \
+    --target-language Spanish \
+    --base-dir ./output
+```
+
+Available themes: `narrator-m/f`, `young-m/f`, `deep-m/f`, `warm-m/f`, `news-m/f`, `storyteller-m/f`, `kid-m/f`, `teen-m/f`.
+
+The generated voice profile is saved in the project directory and reused on subsequent runs.
+
+You can also pre-generate a profile from a theme for repeated use:
+
+```bash
+mazinger profile generate narrator-f Italian -o ./my-narrator
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile ./my-narrator --target-language Italian
+```
+
 ## Use a Voice Profile
 
 Voice profiles let you skip `--voice-sample` and `--voice-script`. They are hosted on HuggingFace and downloaded automatically.
@@ -180,6 +207,16 @@ mazinger speak \
     --srt translated.srt \
     --original-audio audio.mp3 \
     --clone-profile abubakr \
+    -o dubbed.wav
+```
+
+Or with a voice theme:
+
+```bash
+mazinger speak \
+    --srt translated.srt \
+    --original-audio audio.mp3 \
+    --voice-theme warm-f \
     -o dubbed.wav
 ```
 

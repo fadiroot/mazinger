@@ -2,7 +2,10 @@
 
 import gradio as gr
 
-from constants import LANGUAGES, VOICE_PRESETS, METHOD_MAP, OLLAMA_DEFAULT_MODEL
+from constants import (
+    LANGUAGES, VOICE_PRESETS, METHOD_MAP, OLLAMA_DEFAULT_MODEL,
+    THEME_CHOICES, VOICE_THEMES,
+)
 from theme import theme, CSS
 from pipeline import run_dubbing
 
@@ -137,21 +140,56 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                 scale=1,
             )
             voice_type = gr.Radio(
-                ["Preset Voice", "Custom Voice"],
-                value="Preset Voice",
+                ["Voice Theme", "Preset Voice", "Custom Voice"],
+                value="Voice Theme",
                 label="Voice source",
                 scale=1,
             )
 
-        with gr.Group(visible=True) as preset_group:
+        # ── Voice Theme (default — easiest for non-technical users) ──
+        with gr.Group(visible=True, elem_classes="voice-theme-group") as theme_group:
+            gr.Markdown(
+                "Pick a voice style — no files needed. "
+                "A voice is generated automatically to match the theme.",
+                elem_classes="openai-info",
+            )
+            with gr.Row(equal_height=True):
+                # Build category buttons as a dropdown of grouped labels
+                theme_category = gr.Radio(
+                    choices=list(VOICE_THEMES.keys()),
+                    value=list(VOICE_THEMES.keys())[0],
+                    label="Category",
+                    scale=1,
+                )
+                # Theme voices within the selected category
+                _first_cat = list(VOICE_THEMES.keys())[0]
+                _first_voices = list(VOICE_THEMES[_first_cat].keys())
+                voice_theme = gr.Radio(
+                    choices=_first_voices,
+                    value=_first_voices[0],
+                    label="Voice",
+                    scale=1,
+                )
+
+            def _update_theme_voices(category):
+                voices = list(VOICE_THEMES[category].keys())
+                return gr.update(choices=voices, value=voices[0])
+
+            theme_category.change(
+                _update_theme_voices, theme_category, voice_theme,
+            )
+
+        # ── Preset Voice (HuggingFace profiles) ──
+        with gr.Group(visible=False) as preset_group:
             voice_preset = gr.Dropdown(
                 choices=VOICE_PRESETS,
                 value=VOICE_PRESETS[0],
                 allow_custom_value=True,
                 label="Voice preset",
-                info="Select a preset or type any profile name from HuggingFace",
+                info="Select a preset or type any profile name / local path",
             )
 
+        # ── Custom Voice (upload your own) ──
         with gr.Group(visible=False) as custom_group:
             with gr.Row():
                 voice_file = gr.Audio(
@@ -168,10 +206,14 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
 
     def _toggle_voice(choice):
         return (
+            gr.update(visible=(choice == "Voice Theme")),
             gr.update(visible=(choice == "Preset Voice")),
             gr.update(visible=(choice == "Custom Voice")),
         )
-    voice_type.change(_toggle_voice, voice_type, [preset_group, custom_group])
+    voice_type.change(
+        _toggle_voice, voice_type,
+        [theme_group, preset_group, custom_group],
+    )
 
     # ── Advanced Settings ─────────────────────────────────────────
     with gr.Accordion("⚙️  Advanced Settings", open=False):
@@ -240,30 +282,12 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                 )
 
             with gr.Tab("🗣️ TTS"):
-                tts_engine = gr.Dropdown(
-                    ["Qwen", "Chatterbox"],
-                    value="Qwen",
-                    label="TTS engine",
-                )
                 tts_dtype = gr.Dropdown(
                     ["bfloat16", "float16", "float32"],
                     value="bfloat16",
                     label="Model precision",
+                    info="Weight dtype for Qwen3-TTS model",
                 )
-                with gr.Group(visible=False) as chatterbox_group:
-                    with gr.Row():
-                        chatterbox_exaggeration = gr.Slider(
-                            0.0, 1.0, value=0.5, step=0.05,
-                            label="Exaggeration",
-                        )
-                        chatterbox_cfg = gr.Slider(
-                            0.0, 1.0, value=0.5, step=0.05,
-                            label="CFG weight",
-                        )
-
-                def _toggle_cb(engine):
-                    return gr.update(visible=(engine == "Chatterbox"))
-                tts_engine.change(_toggle_cb, tts_engine, chatterbox_group)
 
             with gr.Tab("🔊 Audio"):
                 tempo_mode = gr.Dropdown(
@@ -354,13 +378,14 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
         inputs=[
             source_type, url_input, file_input,
             cookies_text,
-            target_language, voice_type, voice_preset, voice_file, voice_script_text,
+            target_language, voice_type, voice_theme, voice_preset,
+            voice_file, voice_script_text,
             llm_provider, ollama_model, openai_key,
             api_base_url, llm_model,
             quality, start_time, end_time,
             transcribe_method, whisper_model,
             source_language, words_per_second, duration_budget, translate_technical,
-            tts_engine, tts_dtype, chatterbox_exaggeration, chatterbox_cfg,
+            tts_dtype,
             tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
             output_type, force_reset,
         ],

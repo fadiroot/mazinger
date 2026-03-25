@@ -259,6 +259,14 @@ footer { display: none !important; }
     margin: 0.3rem 0 0 !important;
 }
 
+/* ── Voice theme selector ───────────────────────────────────────── */
+.voice-theme-group .gr-radio-group {
+    gap: 0.4rem !important;
+}
+.voice-theme-group label span {
+    font-size: 0.88rem !important;
+}
+
 /* ── Cookie guide ───────────────────────────────────────────────── */
 .cookie-guide-step {
     background: #0f172a !important;

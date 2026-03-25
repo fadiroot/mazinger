@@ -165,7 +165,13 @@ def llm_extra_body(args: argparse.Namespace) -> dict | None:
 def add_voice(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--clone-profile", default=None,
-        help="Name of a voice profile from the HuggingFace dataset (e.g. 'abubakr').",
+        help="Voice profile: HuggingFace name (e.g. 'abubakr') or local directory "
+             "path containing voice.wav + script.txt.",
+    )
+    p.add_argument(
+        "--voice-theme", default=None,
+        help="Pre-defined voice theme (e.g. 'narrator-m', 'young-f'). "
+             "Uses Qwen VoiceDesign to generate a reference voice in the target language.",
     )
     p.add_argument("--voice-sample", default=None, help="Path to voice reference audio.")
     p.add_argument("--voice-script", default=None, help="Path to voice reference transcript.")
@@ -244,13 +250,23 @@ def resolve_voice(args: argparse.Namespace) -> tuple[str | None, str | None]:
         pv, ps = fetch_profile(args.clone_profile)
         voice_sample = voice_sample or pv
         voice_script = voice_script or ps
+    if getattr(args, "voice_theme", None) and not (voice_sample and voice_script):
+        from mazinger.profiles import resolve_theme
+        language = getattr(args, "tts_language", None) or getattr(args, "target_language", "English")
+        device = getattr(args, "device", "cuda:0")
+        dtype = getattr(args, "dtype", "bfloat16")
+        sample, ref_text = resolve_theme(
+            args.voice_theme, language, device=device, dtype=dtype,
+        )
+        voice_sample = voice_sample or sample
+        voice_script = voice_script or ref_text
     return voice_sample, voice_script
 
 
 def require_voice(args: argparse.Namespace) -> tuple[str, str]:
     sample, script = resolve_voice(args)
     if not sample or not script:
-        sys.exit("Error: --voice-sample and --voice-script are required (or use --clone-profile).")
+        sys.exit("Error: provide --voice-sample + --voice-script, --clone-profile, or --voice-theme.")
     return sample, script
 
 

@@ -61,9 +61,10 @@ class MazingerDubber:
     def dub(
         self,
         source: str,
-        voice_sample: str,
-        voice_script: str,
+        voice_sample: str | None = None,
+        voice_script: str | None = None,
         *,
+        voice_theme: str | None = None,
         slug: str | None = None,
         device: str = "cuda",
         transcribe_method: str = "openai",
@@ -103,9 +104,15 @@ class MazingerDubber:
 
         Parameters:
             source:         Video URL, local video path, or local audio path.
-            voice_sample:   Path to the voice-cloning reference audio.
+            voice_sample:   Path to the voice-cloning reference audio.  Can be
+                            omitted when *voice_theme* is provided.
             voice_script:   Path to a text file containing the reference transcript,
-                            **or** the transcript string itself.
+                            **or** the transcript string itself.  Can be omitted
+                            when *voice_theme* is provided.
+            voice_theme:    Pre-defined voice theme name (e.g. ``narrator-m``).
+                            Generates a reference voice via Qwen VoiceDesign in
+                            the target language.  Mutually exclusive with
+                            *voice_sample* / *voice_script*.
             slug:           Project slug override. Derived from the video title
                             or filename when ``None``.
             device:         Accelerator device (``cuda`` or ``cpu``).
@@ -152,6 +159,8 @@ class MazingerDubber:
         if tts_language is None:
             tts_language = target_language
 
+        device_for_tts = device.split(":")[0] + ":0" if ":" not in device else device
+
         # -- Resolve project paths ----------------------------------------
         is_remote = download.is_url(source)
         if slug is None:
@@ -165,6 +174,26 @@ class MazingerDubber:
                 slug = download.slug_from_path(source)
         proj = ProjectPaths(slug, base_dir=self.base_dir).ensure_dirs()
         log.info("Project: %s", proj.root)
+
+        # -- Resolve voice (theme / profile / explicit sample+script) -----
+        if voice_theme and not (voice_sample and voice_script):
+            from mazinger.profiles import generate_profile
+            profile_dir = proj.voice_profile_dir
+            profile_wav = os.path.join(profile_dir, "voice.wav")
+            if os.path.isfile(profile_wav):
+                log.info("Reusing saved voice profile: %s", profile_dir)
+                from mazinger.profiles import _load_local_profile
+                voice_sample, voice_script = _load_local_profile(profile_dir)
+            else:
+                voice_sample, voice_script = generate_profile(
+                    voice_theme, tts_language, profile_dir,
+                    device=device_for_tts, dtype=tts_dtype,
+                )
+
+        if not voice_sample or not voice_script:
+            raise ValueError(
+                "Provide voice_sample + voice_script, or voice_theme."
+            )
 
         if force_reset:
             skip_existing = False
@@ -308,7 +337,6 @@ class MazingerDubber:
         srt_entries = parse_file(proj.final_srt)
         original_duration = get_audio_duration(proj.audio)
 
-        device_for_tts = device.split(":")[0] + ":0" if ":" not in device else device
         tts_model = tts.load_model(
             tts_model_name, device=device_for_tts,
             dtype=tts_dtype, engine=tts_engine,

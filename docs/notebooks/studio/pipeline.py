@@ -6,20 +6,21 @@ import threading
 import time
 import traceback
 
-from constants import OLLAMA_DEFAULT_MODEL, QUALITY_MAP, METHOD_MAP
+from constants import OLLAMA_DEFAULT_MODEL, QUALITY_MAP, METHOD_MAP, THEME_KEY_MAP
 from helpers import LogCollector, ensure_ollama, detect_phase, check_ollama_health
 
 
 def run_dubbing(
     source_type, url, uploaded_file,
     cookies_text,
-    target_language, voice_type, voice_preset, voice_file, voice_script_text,
+    target_language, voice_type, voice_theme_label, voice_preset,
+    voice_file, voice_script_text,
     llm_provider, ollama_model, openai_key,
     api_base_url, llm_model,
     quality, start_time, end_time,
     transcribe_method, whisper_model,
     source_language, words_per_second, duration_budget, translate_technical,
-    tts_engine, tts_dtype, chatterbox_exaggeration, chatterbox_cfg,
+    tts_dtype,
     tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
     output_type, force_reset,
 ):
@@ -56,13 +57,14 @@ def run_dubbing(
         if not voice_preset:
             yield "❌ Please select a voice preset.", "", None, None
             return
-    else:
+    elif voice_type == "Custom Voice":
         if not voice_file:
             yield "❌ Please upload a voice sample (10-30 sec audio clip).", "", None, None
             return
         if not voice_script_text or not voice_script_text.strip():
             yield "❌ Please enter the transcript of your voice sample.", "", None, None
             return
+    # Voice Theme mode needs no extra validation — theme is always selected
 
     collector = LogCollector()
     collector.setFormatter(logging.Formatter(
@@ -72,10 +74,22 @@ def run_dubbing(
     maz_log.setLevel(logging.INFO)
     maz_log.addHandler(collector)
 
-    yield "⏳ Preparing voice profile…", "", None, None
+    yield ("⏳ Preparing voice profile…" if voice_type != "Voice Theme"
+           else "⏳ Voice theme selected — will generate on first run…"), "", None, None
+
+    # Resolve voice based on selected mode
+    voice_sample_path = None
+    voice_script_path = None
+    voice_theme_key = None
 
     try:
-        if voice_type == "Preset Voice":
+        if voice_type == "Voice Theme":
+            # Let the pipeline handle theme generation + caching
+            voice_theme_key = THEME_KEY_MAP.get(voice_theme_label)
+            if not voice_theme_key:
+                yield "❌ Unknown voice theme selected.", "", None, None
+                return
+        elif voice_type == "Preset Voice":
             from mazinger.profiles import fetch_profile
             voice_sample_path, voice_script_path = fetch_profile(voice_preset)
         else:
@@ -138,11 +152,12 @@ def run_dubbing(
                 source=source,
                 voice_sample=voice_sample_path,
                 voice_script=voice_script_path,
+                voice_theme=voice_theme_key,
                 device=device,
                 target_language=target_language,
                 output_type=output_type.lower(),
                 force_reset=force_reset,
-                tts_engine=tts_engine.lower(),
+                tts_engine="qwen",
                 tts_dtype=tts_dtype,
                 tempo_mode=tempo_mode.lower(),
                 max_tempo=max_tempo,
@@ -174,10 +189,6 @@ def run_dubbing(
                 dub_kw["words_per_second"] = words_per_second
             if duration_budget != 0.80:
                 dub_kw["duration_budget"] = duration_budget
-            if tts_engine.lower() == "chatterbox":
-                dub_kw["chatterbox_exaggeration"] = chatterbox_exaggeration
-                dub_kw["chatterbox_cfg"] = chatterbox_cfg
-
             paths = dubber.dub(**dub_kw)
             result["paths"] = paths
 

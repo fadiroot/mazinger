@@ -7,7 +7,7 @@ import argparse
 from mazinger.cli._groups import (
     add_common, add_llm, add_slice, add_source, add_subtitles, add_tempo,
     add_tts_engine, add_transcription, add_translation, add_voice,
-    require_voice, subtitle_style_from_args, tempo_mode_from_args,
+    resolve_voice, subtitle_style_from_args, tempo_mode_from_args,
 )
 
 
@@ -43,7 +43,11 @@ def handler(args: argparse.Namespace) -> None:
     from mazinger.cli._groups import resolve_device
 
     args.device = resolve_device(args.device)
-    voice_sample, voice_script = require_voice(args)
+    voice_sample, voice_script = resolve_voice(args)
+    voice_theme = getattr(args, "voice_theme", None)
+    if not voice_theme and not (voice_sample and voice_script):
+        import sys
+        sys.exit("Error: provide --voice-sample + --voice-script, --clone-profile, or --voice-theme.")
     subtitle_style = subtitle_style_from_args(args) if args.embed_subtitles else None
 
     dubber = MazingerDubber(
@@ -57,6 +61,7 @@ def handler(args: argparse.Namespace) -> None:
         source=args.source,
         voice_sample=voice_sample,
         voice_script=voice_script,
+        voice_theme=voice_theme,
         slug=args.slug,
         device=args.device,
         transcribe_method=args.transcribe_method,

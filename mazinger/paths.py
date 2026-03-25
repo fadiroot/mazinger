@@ -31,6 +31,7 @@ class ProjectPaths:
         self.analysis_dir = os.path.join(self.root, "analysis")
         self.tts_dir = os.path.join(self.root, "tts")
         self.tts_segments_dir = os.path.join(self.tts_dir, "segments")
+        self.voice_profile_dir = os.path.join(self.root, "voice_profile")
 
         # Common file paths
         self.video = os.path.join(self.source_dir, "video.mp4")
@@ -73,6 +74,8 @@ class ProjectPaths:
             "analysis/description.json": self.description,
             "tts/dubbed.wav": self.final_audio,
             "tts/dubbed.mp4": self.final_video,
+            "voice_profile/voice.wav": os.path.join(self.voice_profile_dir, "voice.wav"),
+            "voice_profile/script.txt": os.path.join(self.voice_profile_dir, "script.txt"),
         }
         lines = [f"Project: {self.slug}", f"  Root: {self.root}"]
         for label, path in labels.items():

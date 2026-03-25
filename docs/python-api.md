@@ -30,9 +30,10 @@ Runs the full pipeline and returns a `ProjectPaths` object.
 ```python
 proj = dubber.dub(
     source,                           # str — URL or local file path (required)
-    voice_sample,                     # str — path to reference voice audio (required)
-    voice_script,                     # str — path to reference transcript (required)
+    voice_sample=None,                # str | None — path to reference voice audio
+    voice_script=None,                # str | None — path to reference transcript
     *,
+    voice_theme=None,                 # str | None — pre-defined theme (alternative to sample+script)
     slug=None,                        # str — project directory name (auto-generated if omitted)
     device="cuda",                    # str — "cuda", "cpu", or "auto"
     transcribe_method="openai",       # str — "openai", "faster-whisper", "whisperx"
@@ -71,9 +72,28 @@ proj = dubber.dub(
 
 Returns a `ProjectPaths` instance with all output paths populated.
 
+> When `voice_theme` is provided, `voice_sample` and `voice_script` are optional. The theme generates a voice profile automatically and saves it to the project's `voice_profile/` directory.
+
 ### Full workflow example
 
 ```python
+from mazinger import MazingerDubber
+
+# Using a voice theme (simplest approach)
+dubber = MazingerDubber(openai_api_key="sk-...", base_dir="./output")
+
+proj = dubber.dub(
+    source="https://youtube.com/watch?v=VIDEO_ID",
+    voice_theme="narrator-m",
+    target_language="Spanish",
+    output_type="video",
+)
+
+print(proj.final_video)
+```
+
+```python
+# Using a voice profile
 from mazinger import MazingerDubber
 from mazinger.profiles import fetch_profile
 from mazinger.subtitle import SubtitleStyle
@@ -141,6 +161,7 @@ ProjectPaths(slug, base_dir="./mazinger_output")
 | `final_audio` | `tts/dubbed.wav` |
 | `final_video` | `tts/dubbed.mp4` |
 | `tts_segments_dir` | `tts/segments/` |
+| `voice_profile_dir` | `voice_profile/` |
 
 ### Methods
 
@@ -369,12 +390,35 @@ burn_subtitles("video.mp4", "output.mp4", "translated.srt", style)
 ```python
 from mazinger.profiles import fetch_profile
 
+# From HuggingFace
 voice_path, script_path = fetch_profile("abubakr")
 # voice_path  → /tmp/mazinger-dubber-profiles/abubakr/voice.wav
 # script_path → /tmp/mazinger-dubber-profiles/abubakr/script.txt
+
+# From a local directory
+voice_path, script_path = fetch_profile("./my-profile")
 ```
 
 Files are cached in the system temp directory. Non-WAV voice files are converted to 16-kHz mono WAV automatically.
+
+### Voice themes and profile generation
+
+```python
+from mazinger.profiles import list_themes, generate_profile
+
+# List all 16 pre-defined themes
+themes = list_themes()
+for t in themes:
+    print(f"{t['name']:20s} {t['gender']:8s} {', '.join(t['languages'])}")
+
+# Generate a reusable profile from a theme
+voice_path, script_path = generate_profile(
+    "narrator-m", "Spanish", "./my-profile",
+    device="cuda:0", dtype="bfloat16",
+)
+# Creates: ./my-profile/voice.wav and ./my-profile/script.txt
+# Use with: --clone-profile ./my-profile
+```
 
 ---
 

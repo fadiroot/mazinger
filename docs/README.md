@@ -11,7 +11,7 @@
 3. **[Pipeline Overview](pipeline.md)** — How the nine stages connect, data flow, resume behavior
 4. **[CLI Reference](cli-reference.md)** — Every command, flag, and default value
 5. **[Python API](python-api.md)** — Classes, functions, and parameters for programmatic use
-6. **[Voice Profiles](voice-profiles.md)** — Using, creating, and uploading profiles
+6. **[Voice Profiles](voice-profiles.md)** — Voice themes, built-in profiles, custom voice cloning, and profile generation
 7. **[Subtitle Styling](subtitle-styling.md)** — Fonts, colors, positioning, RTL support, Google Fonts
 8. **[Configuration](configuration.md)** — Environment variables, caching, tempo control, LLM usage tracking
 9. **[Project Structure](project-structure.md)** — Output directory layout and file naming conventions

@@ -33,7 +33,8 @@ mazinger dub <source> [options]
 | `--quality` | best available | Video quality: `low`, `medium`, `high`, or numeric height (e.g., `1080`) |
 | `--cookies-from-browser` | — | Browser name for yt-dlp cookie extraction |
 | `--cookies` | — | Path to a Netscape cookies.txt file |
-| `--clone-profile` | — | Voice profile name from HuggingFace |
+| `--clone-profile` | — | Voice profile name from HuggingFace or local directory path |
+| `--voice-theme` | — | Pre-defined voice theme (e.g. `narrator-m`, `warm-f`). See `mazinger profile list` |
 | `--voice-sample` | — | Path to reference voice audio file |
 | `--voice-script` | — | Path to transcript of the voice sample (or inline text) |
 | `--transcribe-method` | `openai` | `openai`, `faster-whisper`, or `whisperx` |
@@ -74,6 +75,10 @@ All `--subtitle-*` styling flags are also accepted. See [Subtitle Styling](subti
 **Examples:**
 
 ```bash
+# Dub with a voice theme (easiest)
+mazinger dub "https://youtube.com/watch?v=abc123" \
+    --voice-theme narrator-m --target-language Spanish
+
 # Basic dub with a profile
 mazinger dub "https://youtube.com/watch?v=abc123" \
     --clone-profile abubakr --target-language Arabic
@@ -339,7 +344,8 @@ mazinger speak [source] [options]
 |------|---------|-------------|
 | `--srt` | — | Path to translated SRT |
 | `--original-audio` | — | Original audio file (for duration matching) |
-| `--clone-profile` | — | Voice profile name |
+| `--clone-profile` | — | Voice profile name from HuggingFace or local directory path |
+| `--voice-theme` | — | Pre-defined voice theme (e.g. `narrator-m`, `warm-f`) |
 | `--voice-sample` | — | Path to reference voice audio |
 | `--voice-script` | — | Path to transcript of voice sample |
 | `-o`, `--output` | — | Output WAV path |
@@ -360,6 +366,10 @@ mazinger speak [source] [options]
 **Examples:**
 
 ```bash
+# With a voice theme
+mazinger speak --srt translated.srt --original-audio audio.mp3 \
+    --voice-theme warm-f -o dubbed.wav
+
 # Qwen with a profile
 mazinger speak --srt translated.srt --original-audio audio.mp3 \
     --clone-profile abubakr -o dubbed.wav
@@ -374,6 +384,51 @@ mazinger speak --srt translated.srt --original-audio audio.mp3 \
 # Fixed tempo speed-up
 mazinger speak --srt translated.srt --original-audio audio.mp3 \
     --clone-profile abubakr --fixed-tempo 1.1 -o dubbed.wav
+```
+
+---
+
+## profile
+
+List available voice themes or generate a reusable voice profile from a theme.
+
+### profile list
+
+List all available voice themes.
+
+```bash
+mazinger profile list
+```
+
+Displays all 16 pre-defined themes with name, gender, and supported languages.
+
+### profile generate
+
+Generate a voice profile directory from a theme.
+
+```bash
+mazinger profile generate <theme> <language> -o <output-dir> [options]
+```
+
+| Argument / Flag | Default | Description |
+|-----------------|---------|-------------|
+| `theme` | (required) | Theme name (from `profile list`) |
+| `language` | (required) | Target language (e.g. `English`, `Spanish`) |
+| `-o`, `--output` | (required) | Output directory for the profile |
+| `--device` | `auto` | `auto`, `cuda`, or `cpu` |
+| `--dtype` | `bfloat16` | Weight dtype for VoiceDesign model |
+
+The output directory will contain `voice.wav` and `script.txt`, suitable for use with `--clone-profile <path>`.
+
+**Examples:**
+
+```bash
+# Generate a narrator profile for Spanish
+mazinger profile generate narrator-m Spanish -o ./my-narrator
+
+# Use the generated profile
+mazinger dub "https://youtube.com/watch?v=abc123" \
+    --clone-profile ./my-narrator --target-language Spanish
 ```
 
 ---

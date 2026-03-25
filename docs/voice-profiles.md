@@ -1,15 +1,104 @@
 # Voice Profiles & Custom Voice Cloning
 
-Mazinger can clone any voice to produce dubbed audio. There are two ways to provide a voice:
+Mazinger can clone any voice to produce dubbed audio. There are three ways to provide a voice:
 
-1. **Use a built-in profile** — pass `--clone-profile <name>` and Mazinger downloads the voice sample automatically
-2. **Use your own voice files** — pass `--voice-sample` and `--voice-script` with local files you recorded yourself
+1. **Use a voice theme** — pass `--voice-theme <name>` to generate a voice from 16 pre-defined themes (no files needed)
+2. **Use a built-in profile** — pass `--clone-profile <name>` and Mazinger downloads the voice sample automatically from HuggingFace (or point it to a local directory)
+3. **Use your own voice files** — pass `--voice-sample` and `--voice-script` with local files you recorded yourself
 
-Both approaches work with the full `dub` pipeline and the standalone `speak` sub-command.
+All three approaches work with the full `dub` pipeline and the standalone `speak` sub-command.
 
 ---
 
-## Option 1: Use a Built-in Profile
+## Option 1: Use a Voice Theme (Easiest)
+
+Pre-defined voice themes are the simplest way to get started. No recording or file download needed — Mazinger generates a reference voice automatically using the Qwen3-TTS VoiceDesign model.
+
+### Available Themes
+
+| Theme | Gender | Style |
+|-------|--------|-------|
+| `narrator-m` | Male | Professional narrator |
+| `narrator-f` | Female | Professional narrator |
+| `young-m` | Male | Youthful, dynamic |
+| `young-f` | Female | Youthful, dynamic |
+| `deep-m` | Male | Deep, resonant |
+| `deep-f` | Female | Deep, resonant |
+| `warm-m` | Male | Warm, friendly |
+| `warm-f` | Female | Warm, friendly |
+| `news-m` | Male | News reader |
+| `news-f` | Female | News reader |
+| `storyteller-m` | Male | Engaged storytelling |
+| `storyteller-f` | Female | Engaged storytelling |
+| `kid-m` | Male | Child (~8 years old) |
+| `kid-f` | Female | Child (~8 years old) |
+| `teen-m` | Male | Teenager (~16 years old) |
+| `teen-f` | Female | Teenager (~16 years old) |
+
+All themes support 10 languages: Chinese, English, Japanese, Korean, German, French, Russian, Portuguese, Spanish, and Italian.
+
+### CLI
+
+```bash
+# Dub with a voice theme
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --voice-theme narrator-m \
+    --target-language Spanish
+
+# Speak sub-command with a theme
+mazinger speak --srt translated.srt --original-audio audio.mp3 \
+    --voice-theme warm-f -o dubbed.wav
+```
+
+### Python
+
+```python
+from mazinger import MazingerDubber
+
+dubber = MazingerDubber(openai_api_key="sk-...", base_dir="./output")
+
+proj = dubber.dub(
+    source="https://youtube.com/watch?v=VIDEO_ID",
+    voice_theme="narrator-m",
+    target_language="Spanish",
+)
+```
+
+### List All Themes
+
+```bash
+mazinger profile list
+```
+
+In Python:
+
+```python
+from mazinger.profiles import list_themes
+
+for theme in list_themes():
+    print(f"{theme['name']:20s} {theme['gender']:8s} langs={', '.join(theme['languages'])}")
+```
+
+### Generate and Reuse a Theme Profile
+
+You can pre-generate a profile from a theme and save it for repeated use:
+
+```bash
+mazinger profile generate narrator-f English -o ./my-narrator
+
+# Use it with --clone-profile
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile ./my-narrator \
+    --target-language English
+```
+
+### Profile Persistence
+
+When you use `--voice-theme` with `dub` or `speak`, the generated profile is automatically saved to the project's `voice_profile/` directory (`voice.wav` + `script.txt`). On subsequent runs of the same project, the saved profile is reused — no regeneration needed.
+
+---
+
+## Option 2: Use a Built-in Profile
 
 Profiles are hosted on HuggingFace at [`bakrianoo/mazinger-dubber-profiles`](https://huggingface.co/datasets/bakrianoo/mazinger-dubber-profiles) and downloaded on first use. Files are cached in `/tmp/mazinger-dubber-profiles/` and reused on subsequent calls. Non-WAV voice files are automatically converted to 16-kHz mono WAV for TTS compatibility.
 
@@ -43,6 +132,26 @@ voice_path, script_path = fetch_profile("abubakr")
 # script_path → /tmp/mazinger-dubber-profiles/abubakr/script.txt
 ```
 
+### Local Directory Profiles
+
+`--clone-profile` also accepts a local directory path. The directory must contain a voice sample file (`voice.wav`, `voice.m4a`, or `voice.mp3`) and a `script.txt` transcript.
+
+```bash
+# Use a local profile directory
+mazinger dub "https://youtube.com/watch?v=VIDEO_ID" \
+    --clone-profile ./my-profile \
+    --target-language Spanish
+```
+
+This is useful for profiles generated via `mazinger profile generate` or your own custom voice directories.
+
+```python
+from mazinger.profiles import fetch_profile
+
+# Also works with local paths
+voice_path, script_path = fetch_profile("./my-profile")
+```
+
 ### Available Profiles
 
 | Profile | Language | Description |
@@ -56,7 +165,7 @@ voice_path, script_path = fetch_profile("abubakr")
 
 ---
 
-## Option 2: Use Your Own Custom Voice
+## Option 3: Use Your Own Custom Voice
 
 If you have your own voice recording, you can use it directly — no profile upload required.
 
@@ -174,6 +283,8 @@ proj = dubber.dub(
 - **Audio format** — WAV at 16 kHz mono is optimal; Mazinger auto-converts other formats (`.m4a`, `.mp3`)
 - **Transcript accuracy** — For Qwen, the transcript must match the recording **exactly**, word for word — mismatches degrade clone quality
 
+> **Tip:** If you don't want to record your own voice, use voice themes (`--voice-theme`) instead. Themes are pre-trained and ready to use immediately.
+
 ### Example: Recording Your Voice from Scratch
 
 ```bash
@@ -247,11 +358,52 @@ mazinger dub "https://youtube.com/watch?v=VIDEO_ID" --clone-profile my-name
 
 ---
 
+## Python API for Themes and Profiles
+
+### List available themes
+
+```python
+from mazinger.profiles import list_themes
+
+themes = list_themes()
+# Returns: [{'name': 'narrator-m', 'gender': 'male', 'languages': [...]}, ...]
+```
+
+### Generate a profile from a theme
+
+```python
+from mazinger.profiles import generate_profile
+
+voice_path, script_path = generate_profile(
+    "narrator-m", "Spanish", "./my-profile",
+    device="cuda:0", dtype="bfloat16",
+)
+# Generates voice.wav and script.txt in ./my-profile/
+```
+
+### Use themes in dub()
+
+```python
+from mazinger import MazingerDubber
+
+dubber = MazingerDubber(openai_api_key="sk-...")
+
+proj = dubber.dub(
+    source="https://youtube.com/watch?v=VIDEO_ID",
+    voice_theme="narrator-f",     # instead of voice_sample + voice_script
+    target_language="French",
+    output_type="video",
+)
+```
+
+---
+
 ## CLI Reference: All Voice-Related Flags
 
 | Flag | Description | Default |
-|------|-------------|---------|
-| `--clone-profile NAME` | Download a pre-built voice profile from HuggingFace | — |
+|------|-------------|--------|
+| `--voice-theme NAME` | Use a pre-defined voice theme (see `mazinger profile list`) | — |
+| `--clone-profile NAME_OR_PATH` | Voice profile from HuggingFace or local directory path | — |
 | `--voice-sample PATH` | Path to a local voice reference audio file | — |
 | `--voice-script PATH_OR_TEXT` | Path to transcript file, or inline transcript text | — |
 | `--tts-engine {qwen,chatterbox}` | TTS engine to use | `qwen` |
