@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import json_repair
 
-from mazinger.srt import parse_blocks, build
+from mazinger.srt import parse_blocks, build, sanitize
 from mazinger.utils import LLMUsageTracker
 
 if TYPE_CHECKING:
@@ -508,7 +508,7 @@ def resegment_srt(
     Returns:
         The re-segmented SRT as a string.
     """
-    blocks = parse_blocks(srt_text)
+    blocks = parse_blocks(sanitize(srt_text))
 
     # ── Phase 1: merge fragments into complete phrases ────────────────
     merged = _merge_phrases(blocks, client, llm_model, usage_tracker=usage_tracker)

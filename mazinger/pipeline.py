@@ -171,8 +171,8 @@ class MazingerDubber:
                 )
             else:
                 slug = download.slug_from_path(source)
-        proj = ProjectPaths(slug, base_dir=self.base_dir).ensure_dirs()
-        log.info("Project: %s", proj.root)
+        proj = ProjectPaths(slug, base_dir=self.base_dir, target_language=target_language).ensure_dirs()
+        log.info("Project: %s  Language: %s", proj.root, target_language)
 
         # -- Resolve voice (theme / profile / explicit sample+script) -----
         if voice_theme and not (voice_sample and voice_script):
@@ -392,6 +392,7 @@ class MazingerDubber:
         # 10. LLM usage report -------------------------------------------
         if usage_tracker.records:
             log.info(usage_tracker.report())
-            save_json(usage_tracker.records, os.path.join(proj.root, "llm_usage.json"))
+            lang_root = os.path.dirname(proj.tts_dir)
+            save_json(usage_tracker.records, os.path.join(lang_root, "llm_usage.json"))
 
         return proj

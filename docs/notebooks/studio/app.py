@@ -7,6 +7,7 @@ from constants import (
     THEME_CHOICES, VOICE_THEMES,
 )
 from theme import theme, CSS
+from helpers import free_gpu_and_restart_ollama
 from pipeline import run_dubbing
 
 
@@ -57,6 +58,19 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                 "Uses OpenAI Whisper for transcription and GPT for translation.",
                 elem_classes="openai-info",
             )
+
+    with gr.Row():
+        gpu_btn = gr.Button(
+            "🧹 Free GPU & Restart Ollama",
+            variant="secondary",
+            size="sm",
+        )
+        gpu_status = gr.Textbox(
+            label="GPU Status",
+            interactive=False,
+            scale=3,
+        )
+    gpu_btn.click(fn=free_gpu_and_restart_ollama, inputs=[], outputs=[gpu_status])
 
     gr.HTML('<hr class="divider">')
 

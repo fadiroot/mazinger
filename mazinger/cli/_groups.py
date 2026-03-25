@@ -71,7 +71,8 @@ def resolve_project(args: argparse.Namespace):
         else:
             slug = download.slug_from_path(source)
 
-    proj = ProjectPaths(slug, base_dir=base_dir).ensure_dirs()
+    target_language = getattr(args, "target_language", None)
+    proj = ProjectPaths(slug, base_dir=base_dir, target_language=target_language).ensure_dirs()
     is_local_audio = not is_remote and download.is_audio_file(source)
 
     if is_local_audio:

@@ -21,6 +21,46 @@ def format_time(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
+_LLM_TAG_RE = re.compile(
+    r"</?(?:index|translated[_ ]?text|start|end|subtitle|entry|segment|original[_ ]?text)>",
+    re.IGNORECASE,
+)
+_TS_RE = re.compile(r"(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})")
+
+
+def sanitize(srt: str) -> str:
+    """Strip common LLM artifacts from SRT output and rebuild valid structure."""
+    srt = _LLM_TAG_RE.sub("", srt)
+    srt = re.sub(r"```(?:srt)?", "", srt)
+
+    lines = [ln.strip() for ln in srt.splitlines()]
+
+    entries: list[tuple[str, str, list[str]]] = []
+    pending_idx: str | None = None
+    auto = 0
+
+    for line in lines:
+        if not line:
+            continue
+        ts_m = _TS_RE.match(line)
+        if ts_m:
+            auto += 1
+            idx = pending_idx if pending_idx is not None else str(auto)
+            entries.append((idx, line, []))
+            pending_idx = None
+        elif line.isdigit() and not entries or (line.isdigit() and entries and not _TS_RE.match(line)):
+            pending_idx = line
+            auto = int(line)
+        elif entries:
+            entries[-1][2].append(line)
+
+    parts: list[str] = []
+    for idx, ts, text_lines in entries:
+        if text_lines:
+            parts.append(f"{idx}\n{ts}\n{' '.join(text_lines)}\n")
+    return "\n".join(parts) + "\n" if parts else "\n"
+
+
 def parse_blocks(srt: str) -> list[tuple[str, float, float, str]]:
     """Parse SRT text into ``(index, start_sec, end_sec, text)`` tuples."""
     blocks: list[tuple[str, float, float, str]] = []

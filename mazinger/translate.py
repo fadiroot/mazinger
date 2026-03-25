@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from tqdm.auto import tqdm
 
-from mazinger.srt import parse_blocks, blocks_to_text, format_time
+from mazinger.srt import parse_blocks, blocks_to_text, format_time, sanitize
 from mazinger.utils import make_image_content, LLMUsageTracker
 
 if TYPE_CHECKING:
@@ -166,13 +166,18 @@ STRUCTURAL RULES:
 3. {_technical_terms_instruction(kw_examples, target_language, translate_technical_terms)}
 4. The video covers: {kp_summary}. Use this to disambiguate unclear references.
 5. Return ONLY the translated SRT block for the MAIN BLOCK entries -- \
-   no fences, no commentary.
-6. Each subtitle entry format:
-   <index>
-   <start> --> <end>
-   <translated text>
+   no fences, no commentary, no XML tags.
+6. Each subtitle entry must use standard SRT format, for example:
 
-   (blank line)
+   1
+   00:00:01,000 --> 00:00:05,000
+   Translated sentence here.
+
+   2
+   00:00:05,100 --> 00:00:09,500
+   Next translated sentence.
+
+   Do NOT wrap entries in tags like <index>, <translated text>, etc.
 
 You will receive CONTEXT BEFORE and CONTEXT AFTER sections. They are for \
 reference only -- translate and return ONLY the MAIN BLOCK entries."""
@@ -377,7 +382,7 @@ def translate_srt(
         )
         if usage_tracker is not None:
             usage_tracker.record("translate", llm_model, resp)
-        translated_batch = resp.choices[0].message.content.strip()
+        translated_batch = sanitize(resp.choices[0].message.content.strip())
 
         # Filter to only core indices
         translated_blocks = parse_blocks(translated_batch)
@@ -392,7 +397,7 @@ def translate_srt(
         else:
             translated_parts.append(blocks_to_text(filtered))
 
-    result = "\n\n".join(translated_parts) + "\n"
+    result = sanitize("\n\n".join(translated_parts))
 
     original_count = len(all_blocks)
     translated_count = len(parse_blocks(result))
