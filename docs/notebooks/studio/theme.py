@@ -186,6 +186,28 @@ footer { display: none !important; }
     border-radius: 12px !important;
     padding: 1rem !important;
 }
+.results-card .file-preview {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 8px !important;
+}
+.results-card .file-preview .file-name,
+.results-card a[download],
+.results-card .upload-container .file-name,
+.results-card .gradio-file a,
+.results-card .gradio-file a:visited,
+.results-card .gradio-file a:link,
+.results-card .gradio-file span,
+.results-card .gradio-file .name,
+.results-card a,
+.results-card a:visited,
+.results-card a:link {
+    color: #e2e8f0 !important;
+}
+.results-card .gradio-file .size,
+.results-card .file-size {
+    color: #94a3b8 !important;
+}
 
 /* ── Accordion ──────────────────────────────────────────────────── */
 .gradio-accordion {
@@ -222,6 +244,23 @@ footer { display: none !important; }
     border: 2px dashed #334155 !important;
     border-radius: 12px !important;
     background: rgba(15, 23, 42, 0.5) !important;
+}
+.gradio-file a,
+.gradio-file a:visited,
+.gradio-file a:link,
+.gradio-file .wasm-file a,
+.gradio-file td,
+.gradio-file td a {
+    color: #e2e8f0 !important;
+}
+.gradio-file .lite-file,
+.gradio-file tr {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+.gradio-file .lite-file:hover,
+.gradio-file tr:hover {
+    background: #334155 !important;
 }
 
 /* ── Dropdown list (options popup) ──────────────────────────────── */

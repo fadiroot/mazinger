@@ -239,17 +239,9 @@ def _run_subtitles(
                     openai_base_url=_base_url,
                 )
 
-            if not want_translation:
-                result["srt"] = proj.source_srt
-                result["paths"] = proj
-                return
-
-            # 3-6. Thumbnails → Describe → Translate → Resegment
+            # Build LLM client (needed for ASR review and translation)
             from mazinger.llm import build_client
-            from mazinger.thumbnails import select_timestamps, extract_frames
             from mazinger.describe import describe_content
-            from mazinger.translate import translate_srt
-            from mazinger.resegment import resegment_srt
             from mazinger.utils import load_json, save_json
 
             init_kw = {"api_key": _api_key}
@@ -258,6 +250,40 @@ def _run_subtitles(
             if is_ollama:
                 init_kw["think"] = False
             client = build_client(**init_kw)
+
+            if not want_translation:
+                # ASR review: describe content then refine transcript
+                from mazinger.review import review_srt
+
+                with open(proj.source_srt, encoding="utf-8") as f:
+                    srt_text = f.read()
+
+                if skip and os.path.exists(proj.description):
+                    description = load_json(proj.description)
+                else:
+                    description = describe_content(
+                        srt_text, [], client, llm_model=_llm,
+                    )
+                    save_json(description, proj.description)
+
+                if not (skip and os.path.exists(proj.reviewed_srt)):
+                    reviewed = review_srt(
+                        srt_text, description, client,
+                        llm_model=_llm,
+                        source_language=source_language if source_language != "Auto-detect" else "auto",
+                    )
+                    with open(proj.reviewed_srt, "w", encoding="utf-8") as f:
+                        f.write(reviewed)
+
+                result["srt"] = proj.reviewed_srt
+                result["paths"] = proj
+                return
+
+            # 3-6. Thumbnails → Describe → Translate → Resegment
+            from mazinger.thumbnails import select_timestamps, extract_frames
+            from mazinger.translate import translate_srt
+            from mazinger.resegment import resegment_srt
+            from mazinger.review import review_srt
 
             with open(proj.source_raw_srt, encoding="utf-8") as f:
                 srt_text = f.read()
@@ -285,6 +311,19 @@ def _run_subtitles(
                     srt_text, thumb_paths, client, llm_model=_llm,
                 )
                 save_json(description, proj.description)
+
+            # 4b. ASR review
+            if skip and os.path.exists(proj.reviewed_srt):
+                with open(proj.reviewed_srt, encoding="utf-8") as f:
+                    srt_text = f.read()
+            else:
+                srt_text = review_srt(
+                    srt_text, description, client,
+                    llm_model=_llm,
+                    source_language=source_language if source_language != "Auto-detect" else "auto",
+                )
+                with open(proj.reviewed_srt, "w", encoding="utf-8") as f:
+                    f.write(srt_text)
 
             # 5. Translate
             if not (skip and os.path.exists(proj.translated_raw_srt)):
@@ -442,6 +481,7 @@ def _run_full_dub(
                 mix_background=mix_background,
                 background_volume=background_volume,
                 translate_technical_terms=translate_technical,
+                asr_review=True,
                 **(dict(cookies=_cookies_path) if _cookies_path else {}),
             )
 

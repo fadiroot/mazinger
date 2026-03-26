@@ -61,4 +61,5 @@ METHOD_MAP = {
     "WhisperX (local GPU)": "whisperx",
 }
 
-OLLAMA_DEFAULT_MODEL = "qwen3.5:2b-q8_0"
+import os
+OLLAMA_DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:2b-q8_0")

@@ -230,7 +230,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
     )
 
     # ── Advanced Settings ─────────────────────────────────────────
-    with gr.Accordion("⚙️  Advanced Settings", open=False):
+    with gr.Accordion("⚙️  Advanced Settings", open=True):
         with gr.Tabs():
             with gr.Tab("� Output"):
                 output_type = gr.Radio(
@@ -342,7 +342,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
 
     # ── Run Button ────────────────────────────────────────────────
     run_btn = gr.Button(
-        "🎬  Start Dubbing",
+        "🎬  Start",
         variant="primary",
         size="lg",
         elem_classes="run-btn",
