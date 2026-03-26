@@ -201,8 +201,8 @@ def extract_frames(
     timestamps: list[dict],
     output_dir: str,
     *,
-    max_size: int = 768,
-    jpeg_quality: int = 85,
+    max_size: int = 512,
+    jpeg_quality: int = 72,
 ) -> list[dict]:
     """Extract and resize video frames for each timestamp entry.
 
@@ -233,13 +233,15 @@ def extract_frames(
                 continue
             img = Image.open(raw_path).convert("RGB")
             img.thumbnail((max_size, max_size), Image.LANCZOS)
-            img.save(out_path, "JPEG", quality=jpeg_quality, optimize=True)
-            os.remove(raw_path)
+            img.save(out_path, "JPEG", quality=jpeg_quality, optimize=True, exif=b"")
             results.append({"path": out_path, **ts})
             log.debug("Extracted %s (%dx%d)", fname, img.size[0], img.size[1])
         except subprocess.CalledProcessError as exc:
             stderr = (exc.stderr or b"")[:200]
             log.warning("Failed to extract %s: %s", fname, stderr)
+        finally:
+            if os.path.exists(raw_path):
+                os.remove(raw_path)
 
     log.info("Extracted %d/%d thumbnails -> %s", len(results), len(timestamps), output_dir)
     return results
