@@ -73,6 +73,7 @@ def run_dubbing(
     quality, start_time, end_time,
     transcribe_method, whisper_model,
     source_language, words_per_second, duration_budget, translate_technical,
+    tts_engine,
     tts_dtype,
     tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
     output_type, force_reset,
@@ -137,6 +138,7 @@ def run_dubbing(
         quality, start_time, end_time,
         transcribe_method, whisper_model,
         source_language, words_per_second, duration_budget, translate_technical,
+        tts_engine,
         tts_dtype,
         tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
         force_reset,
@@ -415,12 +417,19 @@ def _run_full_dub(
     quality, start_time, end_time,
     transcribe_method, whisper_model,
     source_language, words_per_second, duration_budget, translate_technical,
+    tts_engine,
     tts_dtype,
     tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
     force_reset,
     stream_llm,
 ):
     """Generator → yields (status, logs, llm_stream, audio, srt_file, render_paths) tuples."""
+
+    _engine_map = {
+        "Qwen3-TTS": "qwen",
+        "Qwen3-TTS (vLLM-Omni)": "qwen-vllm",
+    }
+    _tts_engine_key = _engine_map.get(tts_engine, "qwen")
 
     collector = LogCollector()
     maz_log = _setup_logging(collector)
@@ -494,7 +503,7 @@ def _run_full_dub(
                 target_language=target_language,
                 output_type="audio",
                 force_reset=force_reset,
-                tts_engine="qwen",
+                tts_engine=_tts_engine_key,
                 tts_dtype=tts_dtype,
                 tempo_mode=tempo_mode.lower(),
                 max_tempo=max_tempo,

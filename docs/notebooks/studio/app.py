@@ -317,6 +317,12 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                 )
 
             with gr.Tab("🗣️ TTS"):
+                tts_engine = gr.Dropdown(
+                    ["Qwen3-TTS", "Qwen3-TTS (vLLM-Omni)"],
+                    value="Qwen3-TTS (vLLM-Omni)",
+                    label="TTS engine",
+                    info="vLLM-Omni gives faster batched inference (requires vllm-omni)",
+                )
                 tts_dtype = gr.Dropdown(
                     ["bfloat16", "float16", "float32"],
                     value="bfloat16",
@@ -500,6 +506,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
             quality, start_time, end_time,
             transcribe_method, whisper_model,
             source_language, words_per_second, duration_budget, translate_technical,
+            tts_engine,
             tts_dtype,
             tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
             output_type, force_reset,
