@@ -90,7 +90,7 @@ override-dependencies = [
     "numpy>=1.26",         # chatterbox pins numpy<1.26; conflicts with Python 3.12+
     "pandas>=2.2",         # chatterbox pins old pandas; not needed for inference
     "torch>=2.0",          # chatterbox pins torch==2.6.0; Colab has 2.10.0+cu128
-    "torchaudio>=2.0",     # chatterbox pins torchaudio==2.6.0; must match torch
+    "torchaudio>=2.0,<2.7",  # chatterbox pins torchaudio==2.6.0; must match torch major (2.11+ needs CUDA 13)
     "gradio>=5.0",         # chatterbox pins gradio==5.44.1 (UI-only); Colab has 5.50+
     "safetensors>=0.3",    # chatterbox pins safetensors==0.5.3; 0.7+ is backward-compat
 ]
