@@ -348,6 +348,13 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                     label="Background volume",
                 )
 
+            with gr.Tab("📡 Streaming"):
+                stream_llm = gr.Checkbox(
+                    label="Stream LLM responses (live preview)",
+                    value=False,
+                    info="Show LLM output tokens in real-time in a separate log panel",
+                )
+
     gr.HTML('<hr class="divider">')
 
     # ── Run Button ────────────────────────────────────────────────
@@ -372,6 +379,22 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
             autoscroll=True,
             elem_classes="log-box",
         )
+    with gr.Accordion("📡 LLM Stream", open=False, visible=False) as llm_stream_section:
+        llm_stream_box = gr.Textbox(
+            label="LLM response (live)",
+            lines=15,
+            max_lines=60,
+            interactive=False,
+            autoscroll=True,
+            elem_classes="log-box",
+        )
+
+    def _toggle_llm_stream_panel(enabled):
+        return gr.update(visible=enabled, open=enabled)
+
+    stream_llm.change(
+        _toggle_llm_stream_panel, stream_llm, llm_stream_section,
+    )
 
     # ── Results ───────────────────────────────────────────────────
     gr.Markdown("#### 📦  RESULTS", elem_classes="section-title")
@@ -480,8 +503,9 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
             tts_dtype,
             tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
             output_type, force_reset,
+            stream_llm,
         ],
-        outputs=[status, logs, audio_output, srt_output, render_state],
+        outputs=[status, logs, llm_stream_box, audio_output, srt_output, render_state],
     ).then(
         fn=_show_render,
         inputs=[render_state],

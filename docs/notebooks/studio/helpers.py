@@ -29,6 +29,31 @@ class LogCollector(logging.Handler):
             self._lines.clear()
 
 
+class LLMStreamCollector:
+    """Thread-safe buffer that accumulates streamed LLM tokens.
+
+    Used as the callback for :func:`mazinger.llm.set_stream_callback`.
+    The Gradio polling loop reads :meth:`read` to show live output.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._chunks: list[str] = []
+
+    # Callable — this is the stream callback itself
+    def __call__(self, token: str) -> None:
+        with self._lock:
+            self._chunks.append(token)
+
+    def read(self) -> str:
+        with self._lock:
+            return "".join(self._chunks)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._chunks.clear()
+
+
 def ensure_ollama(model_id: str | None = None):
     """Start Ollama server (if needed) and pull the requested model."""
     model_id = model_id or OLLAMA_DEFAULT_MODEL

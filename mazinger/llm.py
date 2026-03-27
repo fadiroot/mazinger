@@ -3,17 +3,52 @@
 When the base URL points to an Ollama server, requests are routed through
 the native ``/api/chat`` endpoint so that parameters like ``think`` are
 handled correctly.  For all other providers the standard OpenAI SDK is used.
+
+Streaming
+---------
+Call :func:`set_stream_callback` with a ``callback(token: str)`` function
+before running pipeline stages.  When set, every LLM completion will stream
+tokens through the callback *and* still return the full response object as
+usual — callers do not need any changes.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import threading
 import urllib.request
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
+
+# -- Global stream callback ------------------------------------------------
+
+_stream_lock = threading.Lock()
+_stream_callback: Callable[[str], Any] | None = None
+
+
+def set_stream_callback(callback: Callable[[str], Any] | None) -> None:
+    """Set a global callback that receives each streamed token.
+
+    Pass ``None`` to disable streaming.  The callback signature is
+    ``callback(token: str)``.
+    """
+    global _stream_callback
+    with _stream_lock:
+        _stream_callback = callback
+
+
+def get_stream_callback() -> Callable[[str], Any] | None:
+    """Return the current stream callback (or ``None``)."""
+    with _stream_lock:
+        return _stream_callback
+
+
+def clear_stream_callback() -> None:
+    """Convenience alias for ``set_stream_callback(None)``."""
+    set_stream_callback(None)
 
 _OLLAMA_DEFAULT_PORT = 11434
 
@@ -121,11 +156,22 @@ class _OllamaChatCompletions:
         temperature: float = 1.0,
         **_kwargs: Any,
     ) -> _ChatCompletion:
+        callback = get_stream_callback()
+
+        options: dict[str, Any] = {"temperature": temperature}
+        # Forward Ollama-specific sampling options when provided.
+        for opt_key in (
+            "repeat_penalty", "top_p", "top_k", "num_predict",
+            "frequency_penalty", "presence_penalty", "seed",
+        ):
+            if opt_key in _kwargs:
+                options[opt_key] = _kwargs[opt_key]
+
         body: dict[str, Any] = {
             "model": model,
             "messages": self._convert_messages(messages),
-            "stream": False,
-            "options": {"temperature": temperature},
+            "stream": bool(callback),
+            "options": options,
         }
         # Per-call ``think`` overrides the client-level default.
         # Default to *disabled* so thinking models don't burn tokens
@@ -139,12 +185,38 @@ class _OllamaChatCompletions:
             self._url, data=data,
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req) as resp:
-            result = json.loads(resp.read())
 
-        content = result.get("message", {}).get("content", "")
-        prompt_tokens = result.get("prompt_eval_count", 0) or 0
-        eval_tokens = result.get("eval_count", 0) or 0
+        if not callback:
+            # Non-streaming path (original behaviour)
+            with urllib.request.urlopen(req) as resp:
+                result = json.loads(resp.read())
+
+            content = result.get("message", {}).get("content", "")
+            prompt_tokens = result.get("prompt_eval_count", 0) or 0
+            eval_tokens = result.get("eval_count", 0) or 0
+        else:
+            # Streaming path — accumulate tokens, forward to callback
+            content_parts: list[str] = []
+            prompt_tokens = 0
+            eval_tokens = 0
+            with urllib.request.urlopen(req) as resp:
+                for raw_line in resp:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    chunk = json.loads(line)
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        content_parts.append(token)
+                        try:
+                            callback(token)
+                        except Exception:
+                            pass
+                    # Last chunk carries the usage counters
+                    if chunk.get("done"):
+                        prompt_tokens = chunk.get("prompt_eval_count", 0) or 0
+                        eval_tokens = chunk.get("eval_count", 0) or 0
+            content = "".join(content_parts)
 
         return _ChatCompletion(
             choices=[_Choice(_Message("assistant", content))],
@@ -185,6 +257,88 @@ class _OllamaClient:
 
 # -- Factory ---------------------------------------------------------------
 
+
+class _StreamingOpenAIChatCompletions:
+    """Proxy that intercepts ``create()`` to stream tokens via callback."""
+
+    # Keys that are Ollama-specific and not understood by the OpenAI SDK.
+    _OLLAMA_ONLY_KEYS = frozenset({
+        "repeat_penalty", "top_k", "num_predict", "think",
+    })
+
+    # Map portable kwarg names to their OpenAI equivalents.
+    _KWARG_MAP = {"num_predict": "max_tokens"}
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+
+    def _normalise_kwargs(self, kwargs: dict) -> dict:
+        """Translate portable kwargs to OpenAI names, drop unsupported ones."""
+        # Apply mappings first (e.g. num_predict → max_tokens)
+        for src, dst in self._KWARG_MAP.items():
+            if src in kwargs and dst not in kwargs:
+                kwargs[dst] = kwargs.pop(src)
+
+        # Strip remaining Ollama-only keys
+        for key in self._OLLAMA_ONLY_KEYS:
+            kwargs.pop(key, None)
+        return kwargs
+
+    def create(self, **kwargs):
+        kwargs = self._normalise_kwargs(kwargs)
+
+        callback = get_stream_callback()
+        if not callback:
+            return self._inner.create(**kwargs)
+
+        # Force streaming on, collect full response for caller
+        kwargs["stream"] = True
+        stream_resp = self._inner.create(**kwargs)
+
+        content_parts: list[str] = []
+        role = "assistant"
+        prompt_tokens = 0
+        completion_tokens = 0
+
+        for chunk in stream_resp:
+            delta = chunk.choices[0].delta if chunk.choices else None
+            if delta and delta.content:
+                content_parts.append(delta.content)
+                try:
+                    callback(delta.content)
+                except Exception:
+                    pass
+            if delta and delta.role:
+                role = delta.role
+            if chunk.usage:
+                prompt_tokens = chunk.usage.prompt_tokens or 0
+                completion_tokens = chunk.usage.completion_tokens or 0
+
+        content = "".join(content_parts)
+        return _ChatCompletion(
+            choices=[_Choice(_Message(role, content))],
+            usage=_Usage(prompt_tokens, completion_tokens),
+        )
+
+
+class _StreamingOpenAIChat:
+    """Proxy for ``client.chat`` that wraps ``completions``."""
+
+    def __init__(self, inner_chat) -> None:
+        self.completions = _StreamingOpenAIChatCompletions(inner_chat.completions)
+
+
+class _StreamingOpenAIClient:
+    """Thin wrapper around ``openai.OpenAI`` that adds stream-callback support."""
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+        self.chat = _StreamingOpenAIChat(inner.chat)
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)
+
+
 def build_client(
     *,
     api_key: str | None = None,
@@ -195,7 +349,7 @@ def build_client(
 
     For Ollama endpoints, returns a lightweight native client that honours
     the ``think`` parameter.  For everything else, returns a standard
-    ``openai.OpenAI`` instance.
+    ``openai.OpenAI`` instance (wrapped for stream-callback support).
     """
     if _is_ollama_url(base_url):
         ollama_base = _ollama_base(base_url)
@@ -209,4 +363,4 @@ def build_client(
         kwargs["api_key"] = api_key
     if base_url:
         kwargs["base_url"] = base_url
-    return OpenAI(**kwargs)
+    return _StreamingOpenAIClient(OpenAI(**kwargs))

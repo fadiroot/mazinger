@@ -16,18 +16,27 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _DESCRIBE_SYSTEM = """\
-You are an expert technical content analyst. You will be given:
-1. Screenshots (thumbnails) from a tutorial video with their timestamps.
-2. The subtitle texts from the video (as a numbered list).
+You are a concise, factual video content analyst.
+You will receive screenshots (thumbnails) and subtitle texts from a video.
 
-Produce a structured JSON object with:
-- "title": concise English title
-- "summary": 2-4 sentence English summary
-- "keypoints": list of 8-15 key topics/concepts (English, short phrases)
-- "keywords": list of 15-30 technical terms, library names, tool names, and
-  domain-specific vocabulary (preserve original casing, e.g. "FastAPI")
+Your task: produce a SHORT structured JSON description of the video.
 
-Return ONLY valid JSON -- no markdown fences, no extra text."""
+STRICT RULES:
+- ONLY state facts directly supported by the subtitles and images.
+- Do NOT invent, guess, or hallucinate any information.
+- Do NOT repeat yourself — every keypoint and keyword must be UNIQUE.
+- Keep keypoints to 5-10 items MAX. Each must be a distinct concept.
+- Keep keywords to 10-20 items MAX. No duplicates, no near-duplicates.
+- If the content is in a non-English language, still write title/summary/keypoints in English.
+- Keywords should preserve original casing and include technical terms, names, tools.
+
+Return EXACTLY this JSON structure (no markdown fences, no extra text):
+{
+  "title": "short descriptive title",
+  "summary": "2-3 sentences summarising the video content",
+  "keypoints": ["unique point 1", "unique point 2", ...],
+  "keywords": ["term1", "Term2", ...]
+}"""
 
 
 def describe_content(
@@ -62,28 +71,65 @@ def describe_content(
         user_parts.append({"type": "text", "text": f"[{tp['timestamp']}] {tp['reason']}"})
         user_parts.append(make_image_content(tp["path"]))
 
-    # Send only subtitle texts — timestamps are irrelevant for content analysis
+    # Send only subtitle texts — timestamps are irrelevant for content analysis.
+    # Limit subtitle lines to avoid overwhelming small models.
     blocks = parse_blocks(srt_text)
+    MAX_LINES = 120
+    if len(blocks) > MAX_LINES:
+        step = len(blocks) / MAX_LINES
+        blocks = [blocks[int(i * step)] for i in range(MAX_LINES)]
     numbered_lines = [f"{idx}. {text.strip()}" for idx, _s, _e, text in blocks]
     texts_only = "\n".join(numbered_lines)
     user_parts.append({"type": "text", "text": f"\n\nSubtitle texts:\n\n{texts_only}"})
     user_parts.append({
         "type": "text",
-        "text": "\nReturn the JSON object with title, summary, keypoints, and keywords.",
+        "text": (
+            "\nNow return the JSON object. Remember:\n"
+            "- NO duplicate keypoints or keywords.\n"
+            "- ONLY facts from the subtitles above.\n"
+            "- Keep it concise."
+        ),
     })
 
     log.info("Requesting content description from %s...", llm_model)
     resp = client.chat.completions.create(
         model=llm_model,
-        temperature=0.2,
+        temperature=0.15,
         think=False,
         messages=[
             {"role": "system", "content": _DESCRIBE_SYSTEM},
             {"role": "user", "content": user_parts},
         ],
+        # Sampling options — penalise repetition, cap output length
+        repeat_penalty=1.3,
+        top_p=0.9,
+        num_predict=1024,
+        frequency_penalty=0.5,
     )
     if usage_tracker is not None:
         usage_tracker.record("describe", llm_model, resp)
     description = json_repair.loads(resp.choices[0].message.content)
+
+    # ── Post-process: deduplicate keypoints and keywords ──────────
+    if isinstance(description.get("keypoints"), list):
+        seen = set()
+        deduped = []
+        for kp in description["keypoints"]:
+            key = kp.strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(kp.strip())
+        description["keypoints"] = deduped[:10]
+
+    if isinstance(description.get("keywords"), list):
+        seen = set()
+        deduped = []
+        for kw in description["keywords"]:
+            key = kw.strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(kw.strip())
+        description["keywords"] = deduped[:20]
+
     log.info("Description generated: %s", description.get("title", ""))
     return description

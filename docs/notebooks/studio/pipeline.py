@@ -9,7 +9,7 @@ import time
 import traceback
 
 from constants import OLLAMA_DEFAULT_MODEL, QUALITY_MAP, METHOD_MAP, THEME_KEY_MAP
-from helpers import LogCollector, ensure_ollama, detect_phase, check_ollama_health
+from helpers import LogCollector, LLMStreamCollector, ensure_ollama, detect_phase, check_ollama_health
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -76,10 +76,11 @@ def run_dubbing(
     tts_dtype,
     tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
     output_type, force_reset,
+    stream_llm,
 ):
-    """Generator → yields (status, logs, audio, srt_file, render_paths) tuples."""
+    """Generator → yields (status, logs, llm_stream, audio, srt_file, render_paths) tuples."""
 
-    _empty = "", "", None, None, None
+    _empty = "", "", "", None, None, None
 
     is_ollama = (llm_provider == "Ollama (Local — Free)")
 
@@ -123,6 +124,7 @@ def run_dubbing(
             transcribe_method, whisper_model,
             source_language, words_per_second, duration_budget, translate_technical,
             output_type, force_reset,
+            stream_llm,
         )
         return
 
@@ -138,6 +140,7 @@ def run_dubbing(
         tts_dtype,
         tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
         force_reset,
+        stream_llm,
     )
 
 
@@ -153,20 +156,25 @@ def _run_subtitles(
     transcribe_method, whisper_model,
     source_language, words_per_second, duration_budget, translate_technical,
     output_type, force_reset,
+    stream_llm,
 ):
-    """Generator → yields (status, logs, audio, srt_file, render_paths) tuples."""
+    """Generator → yields (status, logs, llm_stream, audio, srt_file, render_paths) tuples."""
 
     want_translation = (output_type == "Translated Subtitles")
     collector = LogCollector()
     maz_log = _setup_logging(collector)
+    stream_collector = LLMStreamCollector() if stream_llm else None
 
-    yield "⏳ Starting…", "", None, None, None
+    yield "⏳ Starting…", "", "", None, None, None
 
     result = {}
     error_box = {}
     done = threading.Event()
 
     def _worker():
+        if stream_collector:
+            from mazinger.llm import set_stream_callback
+            set_stream_callback(stream_collector)
         try:
             from mazinger import ProjectPaths
             from mazinger import download as dl
@@ -357,24 +365,29 @@ def _run_subtitles(
                 "Pipeline failed: %s\n%s", exc, traceback.format_exc(),
             )
         finally:
+            if stream_collector:
+                from mazinger.llm import clear_stream_callback
+                clear_stream_callback()
             done.set()
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
 
+    _llm_text = lambda: stream_collector.read() if stream_collector else ""
+
     while not done.is_set():
         time.sleep(2)
-        yield detect_phase(collector.read()), collector.read(), None, None, None
+        yield detect_phase(collector.read()), collector.read(), _llm_text(), None, None, None
 
     maz_log.removeHandler(collector)
 
     if "error" in error_box:
-        yield f"❌ Pipeline failed: {error_box['error']}", collector.read(), None, None, None
+        yield f"❌ Pipeline failed: {error_box['error']}", collector.read(), _llm_text(), None, None, None
         return
 
     srt_out = result.get("srt")
     if not srt_out or not os.path.isfile(srt_out):
-        yield "❌ No subtitle file produced.", collector.read(), None, None, None
+        yield "❌ No subtitle file produced.", collector.read(), _llm_text(), None, None, None
         return
 
     render_paths = {}
@@ -386,7 +399,7 @@ def _run_subtitles(
                 render_paths[attr] = p
 
     label = "Transcription" if not want_translation else "Translation"
-    yield f"✅ {label} complete!\nSRT → {srt_out}", collector.read(), None, srt_out, render_paths
+    yield f"✅ {label} complete!\nSRT → {srt_out}", collector.read(), _llm_text(), None, srt_out, render_paths
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -405,15 +418,17 @@ def _run_full_dub(
     tts_dtype,
     tempo_mode, max_tempo, loudness_match, mix_background, background_volume,
     force_reset,
+    stream_llm,
 ):
-    """Generator → yields (status, logs, audio, srt_file, render_paths) tuples."""
+    """Generator → yields (status, logs, llm_stream, audio, srt_file, render_paths) tuples."""
 
     collector = LogCollector()
     maz_log = _setup_logging(collector)
+    stream_collector = LLMStreamCollector() if stream_llm else None
 
     yield ("⏳ Preparing voice profile…" if voice_type not in ("Voice Theme", "Auto-Clone")
            else "⏳ Voice theme selected — will generate on first run…" if voice_type == "Voice Theme"
-           else "⏳ Auto-clone — voice will be extracted from source…"), "", None, None, None
+           else "⏳ Auto-clone — voice will be extracted from source…"), "", "", None, None, None
 
     voice_sample_path = None
     voice_script_path = None
@@ -425,7 +440,7 @@ def _run_full_dub(
         elif voice_type == "Voice Theme":
             voice_theme_key = THEME_KEY_MAP.get(voice_theme_label)
             if not voice_theme_key:
-                yield "❌ Unknown voice theme selected.", "", None, None, None
+                yield "❌ Unknown voice theme selected.", "", "", None, None, None
                 return
         elif voice_type == "Preset Voice":
             from mazinger.profiles import fetch_profile
@@ -435,7 +450,7 @@ def _run_full_dub(
             voice_script_path = voice_script_text.strip()
     except Exception as exc:
         maz_log.removeHandler(collector)
-        yield f"❌ Voice profile error: {exc}", collector.read(), None, None, None
+        yield f"❌ Voice profile error: {exc}", collector.read(), "", None, None, None
         return
 
     result = {}
@@ -443,6 +458,9 @@ def _run_full_dub(
     done = threading.Event()
 
     def _worker():
+        if stream_collector:
+            from mazinger.llm import set_stream_callback
+            set_stream_callback(stream_collector)
         try:
             from mazinger import MazingerDubber
 
@@ -517,12 +535,17 @@ def _run_full_dub(
                 "Pipeline failed: %s\n%s", exc, traceback.format_exc()
             )
         finally:
+            if stream_collector:
+                from mazinger.llm import clear_stream_callback
+                clear_stream_callback()
             done.set()
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
 
     _poll_count = 0
+    _llm_text = lambda: stream_collector.read() if stream_collector else ""
+
     while not done.is_set():
         time.sleep(2)
         _poll_count += 1
@@ -534,12 +557,12 @@ def _run_full_dub(
             if _ollama_warn:
                 _phase += _ollama_warn
 
-        yield _phase, _log_snapshot, None, None, None
+        yield _phase, _log_snapshot, _llm_text(), None, None, None
 
     maz_log.removeHandler(collector)
 
     if "error" in error_box:
-        yield f"❌ Pipeline failed: {error_box['error']}", collector.read(), None, None, None
+        yield f"❌ Pipeline failed: {error_box['error']}", collector.read(), _llm_text(), None, None, None
         return
 
     paths = result.get("paths")
@@ -570,7 +593,7 @@ def _run_full_dub(
     if audio_out:
         status_parts.append(f"Audio → {audio_out}")
 
-    yield "\n".join(status_parts), collector.read(), audio_out, None, render_paths
+    yield "\n".join(status_parts), collector.read(), _llm_text(), audio_out, None, render_paths
 
 
 def render_video(

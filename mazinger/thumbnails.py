@@ -23,29 +23,27 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _TIMESTAMP_SYSTEM = """\
-You are an expert video analyst. You will receive a timestamped subtitle list \
-from a tutorial / educational video (format: [MM:SS] text). Your job is to \
-select timestamps where extracting a screenshot would add meaningful visual \
-context that the subtitles alone cannot convey.
+You are a video analyst selecting screenshot timestamps from subtitle text.
 
-Good reasons to pick a timestamp:
-- The speaker shows a code editor, terminal, browser, or UI.
-- A diagram, architecture drawing, or slide is presented.
-- The speaker demonstrates a live result (running a server, opening a URL).
-- A new topic or section begins and the screen likely changed.
-- The speaker references something visual ("as you can see here").
+You will receive timestamped subtitles ([MM:SS] text). Pick timestamps where \
+a screenshot would add meaningful visual context.
 
-Guidelines:
-- Pick 10-25 timestamps for a full video, or 5-12 per segment if partial.
-- Spread them so every major visual moment is covered.
-- Prefer moments a few seconds *after* a topic is mentioned.
-- Return ONLY a JSON array with no markdown fences or explanation.
+GOOD reasons to pick a timestamp:
+- Code editor, terminal, browser, or UI is shown
+- Diagram, architecture drawing, or slide is presented
+- Live demo result (server running, URL opened)
+- New topic/section begins (screen likely changed)
+- Speaker references something visual ("as you can see")
 
-Each element:
-  - "timestamp": "HH:MM:SS" or "MM:SS"
-  - "seconds": float total seconds
-  - "reason": one-line description
-"""
+RULES:
+- Pick 5-15 timestamps total. Spread them across the video.
+- Prefer moments a few seconds AFTER a topic is mentioned.
+- ONLY use timestamps that exist in the subtitle list. Do NOT invent times.
+- Each timestamp must be UNIQUE — no duplicates.
+- Return ONLY a valid JSON array. No markdown fences, no commentary.
+
+Each element must have exactly these keys:
+  {"timestamp": "HH:MM:SS" or "MM:SS", "seconds": <float>, "reason": "<one line>"}"""
 
 _TOKEN_THRESHOLD = 12_000
 _BATCH_MINUTES = 5
@@ -87,6 +85,10 @@ def _request_timestamps(
             {"role": "system", "content": _TIMESTAMP_SYSTEM},
             {"role": "user", "content": user_msg},
         ],
+        repeat_penalty=1.3,
+        top_p=0.9,
+        num_predict=2048,
+        frequency_penalty=0.4,
     )
     if usage_tracker is not None:
         usage_tracker.record("thumbnails", llm_model, resp)

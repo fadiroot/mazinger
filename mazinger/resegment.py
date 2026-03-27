@@ -208,6 +208,10 @@ def _llm_merge_batch(
                     ),
                 },
             ],
+            repeat_penalty=1.3,
+            top_p=0.9,
+            num_predict=8000,
+            frequency_penalty=0.3,
         )
         if usage_tracker is not None:
             usage_tracker.record("resegment-merge", llm_model, resp)
@@ -362,6 +366,10 @@ def _llm_split(
             {"role": "system", "content": _SPLIT_SYSTEM},
             {"role": "user", "content": f"Split this subtitle text:\n\n{text}"},
         ],
+        repeat_penalty=1.3,
+        top_p=0.9,
+        num_predict=2048,
+        frequency_penalty=0.3,
     )
     if usage_tracker is not None:
         usage_tracker.record("resegment-split", llm_model, resp)

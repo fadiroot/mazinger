@@ -264,6 +264,10 @@ def review_srt(
 
         resp = client.chat.completions.create(
             model=llm_model, temperature=0.2, messages=msgs, think=False,
+            repeat_penalty=1.2,
+            top_p=0.9,
+            num_predict=8000,
+            frequency_penalty=0.3,
         )
         if usage_tracker is not None:
             usage_tracker.record("review", llm_model, resp)
