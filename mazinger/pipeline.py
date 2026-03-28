@@ -79,7 +79,7 @@ class MazingerDubber:
         chatterbox_exaggeration: float = 0.5,
         chatterbox_cfg: float = 0.5,
         loudness_match: bool = True,
-        mix_background: bool = True,
+        mix_background: bool = False,
         background_volume: float = 0.15,
         cookies_from_browser: str | None = None,
         cookies: str | None = None,
@@ -371,23 +371,21 @@ class MazingerDubber:
 
         # -- Auto-clone voice from source audio ---------------------------
         if auto_clone:
-            from mazinger.profiles import create_auto_clone_profile, _load_local_profile
+            from mazinger.profiles import create_auto_clone_profile
             profile_dir = proj.voice_profile_dir
             profile_wav = os.path.join(profile_dir, "voice.wav")
             if skip_existing and os.path.isfile(profile_wav):
                 log.info("Reusing auto-cloned voice profile: %s", profile_dir)
-                voice_sample, voice_script = _load_local_profile(profile_dir)
+                voice_sample = profile_wav
             else:
                 clone_srt = (
                     proj.reviewed_srt
                     if os.path.exists(proj.reviewed_srt)
                     else source_srt_for_pipeline
                 )
-                voice_sample, voice_script = create_auto_clone_profile(
+                voice_sample = create_auto_clone_profile(
                     proj.audio, clone_srt, profile_dir,
                 )
-            with open(voice_script, encoding="utf-8") as fh:
-                ref_text = fh.read().strip()
 
         # 5. Translate ---------------------------------------------------
         if skip_existing and os.path.exists(proj.translated_raw_srt):

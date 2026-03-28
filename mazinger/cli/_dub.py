@@ -35,8 +35,8 @@ def register(subparsers: argparse._SubParsersAction) -> None:
                    help="Download YouTube subtitles and compare with ASR to pick the best source.")
     p.add_argument("--no-loudness-match", action="store_true",
                    help="Skip loudness normalisation against the original audio.")
-    p.add_argument("--no-mix-background", action="store_true",
-                   help="Skip mixing background audio from the original.")
+    p.add_argument("--mix-background", action="store_true", default=False,
+                   help="Extract and mix background audio from the original.")
     p.add_argument("--background-volume", type=float, default=0.15,
                    help="Background audio mix level, 0.0-1.0 (default: 0.15).")
     p.add_argument("--force-reset", action="store_true",
@@ -98,7 +98,7 @@ def handler(args: argparse.Namespace) -> None:
         subtitle_style=subtitle_style,
         subtitle_source=args.subtitle_source,
         loudness_match=not args.no_loudness_match,
-        mix_background=not args.no_mix_background,
+        mix_background=args.mix_background,
         background_volume=args.background_volume,
     )
     print(proj.summary())

@@ -130,14 +130,15 @@ def _load_qwen_model(
     return model
 
 
-def _create_qwen_voice_prompt(model: Any, ref_audio: str, ref_text: str) -> Any:
+def _create_qwen_voice_prompt(model: Any, ref_audio: str, ref_text: str | None = None) -> Any:
     """Build a reusable voice-clone prompt for Qwen3-TTS."""
+    x_vector_only = ref_text is None
     prompt = model.create_voice_clone_prompt(
         ref_audio=ref_audio,
-        ref_text=ref_text,
-        x_vector_only_mode=False,
+        ref_text=ref_text or "",
+        x_vector_only_mode=x_vector_only,
     )
-    log.info("Qwen voice clone prompt created from %s", ref_audio)
+    log.info("Qwen voice clone prompt created from %s (x_vector_only=%s)", ref_audio, x_vector_only)
     return prompt
 
 
@@ -312,7 +313,7 @@ def load_model(
 def create_voice_prompt(
     model: Any,
     ref_audio: str,
-    ref_text: str,
+    ref_text: str | None = None,
     engine: TTSEngine = "qwen",
     chatterbox_exaggeration: float = 0.5,
     chatterbox_cfg: float = 0.5,
@@ -322,8 +323,9 @@ def create_voice_prompt(
     Parameters:
         model:     A loaded TTS model (from :func:`load_model`).
         ref_audio: Path to the reference audio file.
-        ref_text:  Transcript of the reference audio (required for Qwen,
-                   ignored for Chatterbox).
+        ref_text:  Transcript of the reference audio.  When ``None``,
+                   Qwen uses x-vector-only mode (no transcript needed).
+                   Ignored for Chatterbox.
         engine:    TTS engine: ``qwen`` or ``chatterbox``.
         chatterbox_exaggeration: Exaggeration level for Chatterbox (0.0-1.0).
         chatterbox_cfg:          CFG weight for Chatterbox (0.0-1.0).

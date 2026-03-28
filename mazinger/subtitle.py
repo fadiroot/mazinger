@@ -14,6 +14,30 @@ log = logging.getLogger(__name__)
 
 _POSITIONS = {"bottom": 2, "top": 8, "center": 5}
 
+_nvenc_available: bool | None = None
+
+
+def _has_nvenc() -> bool:
+    """Check whether ffmpeg supports h264_nvenc (cached)."""
+    global _nvenc_available
+    if _nvenc_available is None:
+        try:
+            r = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-encoders"],
+                capture_output=True, text=True, timeout=5,
+            )
+            _nvenc_available = "h264_nvenc" in r.stdout
+        except Exception:
+            _nvenc_available = False
+    return _nvenc_available
+
+
+def _video_encode_args() -> list[str]:
+    """Return ffmpeg video-codec arguments, preferring NVENC when available."""
+    if _has_nvenc():
+        return ["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "23"]
+    return ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23"]
+
 # Unicode ranges for Arabic, Arabic Supplement, Arabic Extended,
 # Arabic Presentation Forms A/B, and Farsi-specific characters.
 _RTL_RE = re.compile(
@@ -556,7 +580,7 @@ def burn_subtitles(
     if audio_path:
         cmd += ["-i", audio_path]
 
-    cmd += ["-vf", vf, "-c:v", "libx264", "-preset", "medium", "-crf", "23"]
+    cmd += ["-vf", vf] + _video_encode_args()
 
     if audio_path:
         cmd += ["-map", "0:v:0", "-map", "1:a:0"]

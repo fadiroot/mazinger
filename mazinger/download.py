@@ -567,9 +567,12 @@ def slice_media(
 
     if has_video:
         # Re-encode video for frame-accurate start (no frozen frames).
-        # Use CRF-based H.264 for quality; preset "medium" balances speed.
+        from mazinger.subtitle import _has_nvenc
+        if _has_nvenc():
+            cmd += ["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "18"]
+        else:
+            cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "18"]
         cmd += [
-            "-c:v", "libx264", "-preset", "medium", "-crf", "18",
             "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "192k",
         ]

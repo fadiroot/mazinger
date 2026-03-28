@@ -577,15 +577,15 @@ def create_auto_clone_profile(
     audio_path: str,
     srt_path: str,
     output_dir: str,
-) -> tuple[str, str]:
+) -> str:
     """Create a voice profile by extracting a segment from *audio_path*.
 
     Selects a contiguous block of SRT entries spanning 20–60 s with the
     highest word count, extracts the matching audio slice, and writes
-    ``voice.wav`` + ``script.txt`` into *output_dir*.
+    ``voice.wav`` into *output_dir*.
 
     Returns:
-        ``(voice_wav_path, script_path)``
+        Path to the extracted ``voice.wav``.
     """
     from mazinger.srt import parse_file
 
@@ -624,11 +624,9 @@ def create_auto_clone_profile(
 
     start_t = entries[best_i]["start"]
     end_t = entries[best_j]["end"]
-    script = " ".join(e["text"] for e in entries[best_i:best_j + 1])
 
     os.makedirs(output_dir, exist_ok=True)
     wav_path = os.path.join(output_dir, "voice.wav")
-    script_path = os.path.join(output_dir, SCRIPT_FILENAME)
 
     subprocess.run(
         [
@@ -640,14 +638,11 @@ def create_auto_clone_profile(
         check=True, capture_output=True,
     )
 
-    with open(script_path, "w", encoding="utf-8") as fh:
-        fh.write(script)
-
     log.info(
         "Auto-cloned voice profile: %.1fs, %d words -> %s",
         end_t - start_t, best_words, output_dir,
     )
-    return wav_path, script_path
+    return wav_path
 
 
 def fetch_profile(profile_name: str, cache_dir: str | None = None) -> tuple[str, str]:

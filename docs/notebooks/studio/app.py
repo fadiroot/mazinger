@@ -351,7 +351,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                     )
                     mix_background = gr.Checkbox(
                         label="Mix background audio",
-                        value=True,
+                        value=False,
                     )
                 background_volume = gr.Slider(
                     0.0, 1.0, value=0.15, step=0.05,
