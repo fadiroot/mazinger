@@ -6,7 +6,7 @@ Usage:
            [--output-dir DIR]
 
 Measures per-segment latency, real-time factor (RTF), and throughput
-for the native Qwen3-TTS model (not vLLM-Omni).
+for the native Qwen3-TTS model.
 
 Generated audio files are saved to ``mazinger/testing/output/`` by default
 (git-ignored) so you can listen and judge quality.

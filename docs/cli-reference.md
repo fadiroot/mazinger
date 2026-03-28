@@ -48,7 +48,7 @@ mazinger dub <source> [options]
 | `--translate-technical-terms` | off | Translate technical terms instead of keeping them in English |
 | `--asr-review` | off | Review ASR transcript with LLM to fix typos and punctuation |
 | `--keep-technical-english` | off | Convert technical terms to English in the source transcript (requires `--asr-review`) |
-| `--tts-engine` | `qwen` | `qwen`, `chatterbox`, or `qwen-vllm` |
+| `--tts-engine` | `qwen` | `qwen` or `chatterbox` |
 | `--tts-model` | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` | Qwen model ID |
 | `--chatterbox-model` | `ResembleAI/chatterbox` | Chatterbox model ID |
 | `--tts-language` | same as `--target-language` | Language hint for TTS |
@@ -101,11 +101,6 @@ mazinger dub ./lecture.mp4 \
 mazinger dub "https://youtube.com/watch?v=abc123" \
     --clone-profile abubakr --target-language Arabic \
     --start 00:01:30 --end 00:05:00
-
-# Dub with vLLM-Omni for faster batched TTS
-mazinger dub "https://youtube.com/watch?v=abc123" \
-    --clone-profile abubakr --target-language Arabic \
-    --tts-engine qwen-vllm
 
 # Local transcription, dynamic tempo
 mazinger dub "https://youtube.com/watch?v=abc123" \
@@ -363,7 +358,7 @@ mazinger speak [source] [options]
 | `--voice-script` | — | Path to transcript of voice sample |
 | `-o`, `--output` | — | Output WAV path |
 | `--segments-dir` | — | Directory for individual segment WAVs |
-| `--tts-engine` | `qwen` | `qwen`, `chatterbox`, or `qwen-vllm` |
+| `--tts-engine` | `qwen` | `qwen` or `chatterbox` |
 | `--tts-model` | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` | Qwen model ID |
 | `--chatterbox-model` | `ResembleAI/chatterbox` | Chatterbox model ID |
 | `--tts-language` | — | Language hint for TTS |
@@ -393,10 +388,6 @@ mazinger speak --srt translated.srt --original-audio audio.mp3 \
     --tts-engine chatterbox \
     --chatterbox-exaggeration 0.7 --chatterbox-cfg 0.3 \
     -o dubbed.wav
-
-# Qwen via vLLM-Omni (faster batched inference)
-mazinger speak --srt translated.srt --original-audio audio.mp3 \
-    --clone-profile abubakr --tts-engine qwen-vllm -o dubbed.wav
 
 # Fixed tempo speed-up
 mazinger speak --srt translated.srt --original-audio audio.mp3 \

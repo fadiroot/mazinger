@@ -318,10 +318,9 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
 
             with gr.Tab("🗣️ TTS"):
                 tts_engine = gr.Dropdown(
-                    ["Qwen3-TTS", "Qwen3-TTS (vLLM-Omni)"],
+                    ["Qwen3-TTS"],
                     value="Qwen3-TTS",
                     label="TTS engine",
-                    info="vLLM-Omni gives faster batched inference (requires vllm-omni)",
                 )
                 tts_dtype = gr.Dropdown(
                     ["bfloat16", "float16", "float32"],

@@ -427,7 +427,6 @@ def _run_full_dub(
 
     _engine_map = {
         "Qwen3-TTS": "qwen",
-        "Qwen3-TTS (vLLM-Omni)": "qwen-vllm",
     }
     _tts_engine_key = _engine_map.get(tts_engine, "qwen")
 

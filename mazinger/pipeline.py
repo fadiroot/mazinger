@@ -73,7 +73,6 @@ class MazingerDubber:
         tts_dtype: str = "bfloat16",
         tts_language: str | None = None,
         tts_engine: str = "qwen",
-        stage_configs_path: str | None = None,
         source_language: str = "auto",
         target_language: str = "English",
         chatterbox_model: str = "ResembleAI/chatterbox",
@@ -125,9 +124,7 @@ class MazingerDubber:
             tts_model_name: HuggingFace model identifier for TTS.
             tts_dtype:      Weight dtype for the TTS model.
             tts_language:   Language name passed to the TTS model.
-            tts_engine:     TTS engine to use: ``qwen``, ``chatterbox``, or
-                            ``qwen-vllm`` (requires ``vllm-omni``).
-            stage_configs_path: Path to a vLLM-Omni stage config YAML (optional).
+            tts_engine:     TTS engine to use: ``qwen`` or ``chatterbox``.
             chatterbox_model: HuggingFace model identifier for Chatterbox.
             chatterbox_exaggeration: Exaggeration level for Chatterbox (0.0-1.0).
             chatterbox_cfg: CFG weight for Chatterbox (0.0-1.0).
@@ -382,14 +379,12 @@ class MazingerDubber:
             tts_model_name, device=device_for_tts,
             dtype=tts_dtype, engine=tts_engine,
             chatterbox_model=chatterbox_model,
-            stage_configs_path=stage_configs_path,
         )
         voice_prompt = tts.create_voice_prompt(
             tts_model, voice_sample, ref_text,
             engine=tts_engine,
             chatterbox_exaggeration=chatterbox_exaggeration,
             chatterbox_cfg=chatterbox_cfg,
-            model_name=tts_model_name,
         )
         segment_info = tts.synthesize_segments(
             tts_model, voice_prompt, srt_entries, proj.tts_segments_dir,

@@ -26,14 +26,12 @@ Both require a CUDA GPU (or can fall back to CPU at reduced speed).
 ```bash
 pip install "mazinger[tts]"                    # Qwen3-TTS — needs a voice sample + transcript
 pip install "mazinger[tts-chatterbox]"         # Chatterbox — needs only a voice sample, has emotion control
-pip install "mazinger[tts-vllm]"               # Qwen3-TTS via vLLM-Omni — faster batched inference
 ```
 
 ### Full Bundles
 
 ```bash
 pip install "mazinger[all-qwen]"              # WhisperX + Qwen3-TTS
-pip install "mazinger[all-qwen-vllm]"         # WhisperX + Qwen3-TTS via vLLM-Omni
 pip install "mazinger[all-chatterbox]"        # faster-whisper + Chatterbox
 ```
 
@@ -44,7 +42,6 @@ Qwen and Chatterbox pull different versions of `transformers` and cannot coexist
 | Extra | transformers | Compatible with |
 |-------|-------------|-----------------|
 | `tts` (Qwen) | ≥ 4.48 | `transcribe-faster`, `transcribe-whisperx` |
-| `tts-vllm` (Qwen via vLLM-Omni) | — | `transcribe-faster`, `transcribe-whisperx` |
 | `tts-chatterbox` | == 4.46.3 | `transcribe-faster`, OpenAI transcription |
 
 WhisperX requires `transformers>=4.48`, so it conflicts with Chatterbox. When using Chatterbox, choose `transcribe-faster` or the cloud-based OpenAI transcription.
@@ -63,10 +60,8 @@ WhisperX requires `transformers>=4.48`, so it conflicts with Chatterbox. When us
 | Re-segment | `mazinger resegment` | yes | — |
 | Speak (Qwen) | `mazinger speak` | no | `tts` + CUDA |
 | Speak (Chatterbox) | `mazinger speak --tts-engine chatterbox` | no | `tts-chatterbox` + CUDA |
-| Speak (vLLM-Omni) | `mazinger speak --tts-engine qwen-vllm` | no | `tts-vllm` + CUDA |
 | Subtitle embed | `mazinger subtitle` | yes | ffmpeg only |
 | Full dub (Qwen) | `mazinger dub` | no | `all-qwen` + CUDA |
-| Full dub (vLLM-Omni) | `mazinger dub --tts-engine qwen-vllm` | no | `all-qwen-vllm` + CUDA |
 | Full dub (Chatterbox) | `mazinger dub --tts-engine chatterbox` | no | `all-chatterbox` + CUDA |
 
 ## System Dependencies
@@ -111,28 +106,6 @@ EOF
 
 uv pip install --override /tmp/qwen_overrides.txt "mazinger[all-qwen]"
 ```
-
-### Fresh venv with Qwen via vLLM-Omni (Python 3.10+)
-
-vLLM-Omni provides faster batched TTS inference. Requires careful install ordering to avoid ABI mismatches.
-
-```bash
-uv venv .venv --python 3.10
-source .venv/bin/activate
-
-# 1. PyTorch from CUDA index — must come first
-uv pip install torch torchaudio \
-    --index-url https://download.pytorch.org/whl/cu126
-
-# 2. Mazinger + vLLM + vLLM-Omni
-uv pip install "mazinger[all-qwen-vllm]"
-
-# 3. Restore torchaudio (vllm-omni's openai-whisper may downgrade it)
-uv pip install torchaudio \
-    --index-url https://download.pytorch.org/whl/cu126
-```
-
-> **Important:** vLLM-Omni depends on `openai-whisper` which can pull an incompatible `torchaudio` from PyPI. Always reinstall `torchaudio` from the PyTorch CUDA index as the last step.
 
 ### Google Colab — Chatterbox
 
