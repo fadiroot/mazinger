@@ -502,6 +502,23 @@ def burn_subtitles(
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
+    # Auto-detect RTL content and download an Arabic-capable font when the
+    # user hasn't supplied a custom font file and is still on the default
+    # "Arial" (which is often missing on headless Linux / Colab).
+    if style.font_file is None and style.font == "Arial":
+        try:
+            with open(srt_path, encoding="utf-8") as _fh:
+                _srt_sample = _fh.read(8192)
+            if _RTL_RE.search(_srt_sample):
+                log.info(
+                    "RTL text detected and no custom font set — "
+                    "downloading Noto Sans Arabic …"
+                )
+                style.font_file = download_google_font("Noto Sans Arabic")
+                style.font = _detect_font_family(style.font_file) or "Noto Sans Arabic"
+        except Exception as exc:
+            log.warning("Could not auto-download Arabic font: %s", exc)
+
     # Preprocess SRT: display split → RTL → line spacing.
     # Each step creates a temp file; we track them all for cleanup.
     cleanup_paths: list[str] = []
