@@ -195,8 +195,8 @@ def add_tempo(p: argparse.ArgumentParser) -> None:
                    help="Enable per-segment dynamic tempo adjustment.")
     p.add_argument("--fixed-tempo", type=float, default=None,
                    help="Apply a fixed tempo rate to all segments (e.g. 1.1). Overrides --dynamic-tempo.")
-    p.add_argument("--max-tempo", type=float, default=1.3,
-                   help="Maximum speed-up factor for dynamic tempo (default: 1.3).")
+    p.add_argument("--max-tempo", type=float, default=1.5,
+                   help="Maximum speed-up factor for dynamic tempo (default: 1.5).")
 
 
 def add_transcription(p: argparse.ArgumentParser) -> None:

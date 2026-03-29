@@ -341,7 +341,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                     label="Tempo mode",
                 )
                 max_tempo = gr.Slider(
-                    1.0, 2.0, value=1.3, step=0.05,
+                    1.0, 2.0, value=1.5, step=0.05,
                     label="Max tempo",
                 )
                 with gr.Row():
@@ -351,7 +351,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
                     )
                     mix_background = gr.Checkbox(
                         label="Mix background audio",
-                        value=False,
+                        value=True,
                     )
                 background_volume = gr.Slider(
                     0.0, 1.0, value=0.15, step=0.05,
