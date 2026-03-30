@@ -646,6 +646,16 @@ def _transcribe_whisperx(
     """
     try:
         import torch
+
+        # torchaudio >=2.11 removed list_audio_backends() / set_audio_backend();
+        # speechbrain (used by pyannote/whisperx) still references them.
+        # Provide no-op shims so the import chain doesn't break.
+        import torchaudio
+        if not hasattr(torchaudio, "list_audio_backends"):
+            torchaudio.list_audio_backends = lambda: ["soundfile"]
+        if not hasattr(torchaudio, "set_audio_backend"):
+            torchaudio.set_audio_backend = lambda backend: None
+
         import whisperx
     except ImportError as e:
         raise ImportError(

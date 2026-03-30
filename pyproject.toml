@@ -31,7 +31,8 @@ transcribe-faster = [
 # NOT compatible with tts-chatterbox due to transformers conflict.
 # For chatterbox environments, use faster-whisper or OpenAI transcription.
 transcribe-whisperx = [
-    "whisperx>=3.0",
+    "whisperx>=3.8.4",
+    "pyannote.audio>=4.0",  # torchaudio 2.11+ removed AudioMetaData; pyannote 4.x is compatible
     "torch>=2.0",
     "scipy>=1.14",          # ABI-compatible with numpy 2.x (Colab Fix)
     "scikit-learn>=1.5",    # Pulled by transformers; must match scipy
@@ -91,9 +92,11 @@ where = ["."]
 override-dependencies = [
     "numpy>=1.26",         # chatterbox pins numpy<1.26; conflicts with Python 3.12+
     "pandas>=2.2",         # chatterbox pins old pandas; not needed for inference
-    "torch>=2.0",          # chatterbox pins torch==2.6.0; Colab has 2.10.0+cu128
-    "torchaudio>=2.0,<2.7",  # chatterbox pins torchaudio==2.6.0; must match torch major (2.11+ needs CUDA 13)
+    "torch>=2.0",          # chatterbox pins torch==2.6.0; allow system CUDA build
+    "torchaudio>=2.0",     # chatterbox pins torchaudio==2.6.0; allow system CUDA build
     "safetensors>=0.3",    # chatterbox pins safetensors==0.5.3; 0.7+ is backward-compat
+    "pyannote.audio>=4.0", # whisperx pins pyannote<4.0; but torchaudio 2.11+ needs pyannote 4.x
+    "whisperx>=3.8.4",     # older whisperx passes deprecated use_auth_token to pyannote 4.x
 ]
 
 # Build dependencies for packages with missing build requirements
