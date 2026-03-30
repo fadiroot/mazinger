@@ -13,7 +13,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--audio", default=None, help="Path to audio file (overrides source).")
     p.add_argument("-o", "--output", default=None,
                    help="Output SRT path (default: project transcription/source.srt).")
-    p.add_argument("--method", default="openai", choices=["openai", "faster-whisper", "whisperx"],
+    p.add_argument("--method", default="whisperx", choices=["openai", "faster-whisper", "whisperx"],
                    help="Transcription backend.")
     p.add_argument("--model", default=None,
                    help="Model name. Defaults to 'whisper-1' for OpenAI, 'large-v3' for local.")

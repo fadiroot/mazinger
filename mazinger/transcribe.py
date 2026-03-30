@@ -765,7 +765,7 @@ def transcribe(
     audio_path: str,
     output_path: str,
     *,
-    method: TranscribeMethod = "openai",
+    method: TranscribeMethod = "whisperx",
     model: str | None = None,
     device: str = "cuda",
     batch_size: int = 4,
@@ -788,8 +788,8 @@ def transcribe(
     Parameters:
         audio_path:     Path to the input audio file.
         output_path:    Where to save the final SRT.
-        method:         Transcription backend: ``openai`` (default),
-                        ``faster-whisper``, or ``whisperx``.
+        method:         Transcription backend: ``whisperx`` (default),
+                        ``openai``, or ``faster-whisper``.
         model:          Model name. Defaults to ``whisper-1`` for OpenAI,
                         ``large-v3`` for faster-whisper and WhisperX.
         device:         ``cuda`` or ``cpu`` (local methods only).
@@ -807,8 +807,11 @@ def transcribe(
         The path to the saved SRT file.
 
     Examples:
-        # Using OpenAI (default, no local GPU needed)
+        # Using WhisperX (default, local GPU with word-level alignment)
         transcribe("audio.mp3", "output.srt")
+
+        # Using OpenAI (cloud, no local GPU needed)
+        transcribe("audio.mp3", "output.srt", method="openai")
 
         # Using faster-whisper (fast local, compatible with Chatterbox)
         transcribe("audio.mp3", "output.srt", method="faster-whisper", device="cuda")

@@ -70,7 +70,7 @@ class MazingerDubber:
         voice_theme: str | None = None,
         slug: str | None = None,
         device: str = "cuda",
-        transcribe_method: str = "openai",
+        transcribe_method: str = "whisperx",
         whisper_model: str | None = None,
         beam_size: int = 5,
         tts_model_name: str = "Qwen/Qwen3-TTS-12Hz-1.7B-Base",

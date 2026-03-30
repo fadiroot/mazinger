@@ -246,9 +246,9 @@ def _run_subtitles(
 
             # 2. Transcribe
             if not (skip and os.path.exists(proj.source_srt)):
-                m = METHOD_MAP.get(transcribe_method, "faster-whisper")
+                m = METHOD_MAP.get(transcribe_method, "whisperx")
                 if is_ollama and m == "openai":
-                    m = "faster-whisper"
+                    m = "whisperx"
 
                 # Build initial prompt from video metadata (title, tags…)
                 from mazinger.transcribe import build_initial_prompt
@@ -545,7 +545,7 @@ def _run_full_dub(
                 dub_kw["end"] = end_time.strip()
             m = METHOD_MAP.get(transcribe_method)
             if is_ollama and m == "openai":
-                m = "faster-whisper"
+                m = "whisperx"
             if m:
                 dub_kw["transcribe_method"] = m
             if whisper_model and whisper_model.strip():

@@ -111,7 +111,7 @@ def ensure_transcription(proj, args: argparse.Namespace) -> None:
     from mazinger.transcribe import transcribe
     transcribe(
         proj.audio, proj.source_srt,
-        method=getattr(args, "transcribe_method", "openai"),
+        method=getattr(args, "transcribe_method", "whisperx"),
         model=getattr(args, "whisper_model", None),
         device=getattr(args, "device", "cuda"),
         openai_api_key=getattr(args, "openai_api_key", None),
@@ -216,7 +216,7 @@ def add_segment_mode(p: argparse.ArgumentParser) -> None:
 
 def add_transcription(p: argparse.ArgumentParser) -> None:
     p.add_argument(
-        "--transcribe-method", default="openai", choices=["openai", "faster-whisper", "whisperx"],
+        "--transcribe-method", default="whisperx", choices=["openai", "faster-whisper", "whisperx"],
         help="Transcription backend: 'openai', 'faster-whisper', or 'whisperx'.",
     )
     p.add_argument("--whisper-model", default=None, help="Whisper model name.")

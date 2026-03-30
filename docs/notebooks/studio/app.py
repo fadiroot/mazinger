@@ -352,7 +352,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
             with gr.Tab("📝 Transcription"):
                 transcribe_method = gr.Dropdown(
                     list(METHOD_MAP.keys()),
-                    value="Faster Whisper (local GPU)",
+                    value="WhisperX (local GPU)",
                     label="Transcription method",
                     info="Cloud = needs OpenAI key  •  Local = faster, requires GPU",
                 )
@@ -497,7 +497,7 @@ with gr.Blocks(theme=theme, title="Mazinger Studio", css=CSS) as app:
         return (
             gr.update(visible=is_ollama),        # ollama_group
             gr.update(visible=not is_ollama),     # openai_group
-            gr.update(value="Faster Whisper (local GPU)" if is_ollama
+            gr.update(value="WhisperX (local GPU)" if is_ollama
                       else "OpenAI Whisper (cloud)"),  # transcribe_method
         )
     llm_provider.change(
