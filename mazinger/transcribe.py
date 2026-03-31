@@ -625,6 +625,92 @@ def _transcribe_faster_whisper(
 
     return raw_segments, detected_lang
 
+
+def _transcribe_gap(
+    audio_path: str,
+    start: float,
+    end: float,
+    *,
+    language: str | None = None,
+    beam_size: int = 5,
+    initial_prompt: str | None = None,
+) -> list[dict]:
+    """Re-transcribe a specific time range using the cached faster-whisper model.
+
+    Extracts the gap audio to a temp WAV, runs inference, then offsets
+    timestamps back to the original timeline.
+    """
+    import subprocess
+    import tempfile
+
+    if not _whisper_cache:
+        return []
+
+    whisper_model = next(iter(_whisper_cache.values()))
+    tmp_path = None
+
+    try:
+        fd, tmp_path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-ss", str(start), "-to", str(end),
+                "-i", audio_path,
+                "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le",
+                tmp_path,
+            ],
+            check=True, capture_output=True,
+        )
+
+        from faster_whisper import BatchedInferencePipeline
+
+        batched = BatchedInferencePipeline(model=whisper_model)
+        kw: dict = {
+            "beam_size": beam_size,
+            "word_timestamps": True,
+            "condition_on_previous_text": False,
+        }
+        if language:
+            kw["language"] = language
+        if initial_prompt:
+            kw["initial_prompt"] = initial_prompt
+
+        segments_gen, _ = batched.transcribe(tmp_path, **kw)
+
+        result: list[dict] = []
+        for seg in segments_gen:
+            text = _clean_text(seg.text.strip())
+            if not text:
+                continue
+            entry = {
+                "start": round(seg.start + start, 3),
+                "end": round(seg.end + start, 3),
+                "text": text,
+            }
+            if seg.words:
+                entry["words"] = [
+                    {
+                        "word": w.word,
+                        "start": round(w.start + start, 3),
+                        "end": round(w.end + start, 3),
+                    }
+                    for w in seg.words
+                ]
+            result.append(entry)
+
+        del batched
+        return result
+
+    except Exception as exc:
+        log.warning("Gap transcription failed (%.1f-%.1fs): %s", start, end, exc)
+        return []
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
 # ── WhisperX local backend ────────────────────────────────────────────────────
 
 def _transcribe_whisperx(
@@ -875,6 +961,33 @@ def transcribe(
 
     # Clean up common transcription artifacts
     raw_segments = _clean_segments(raw_segments)
+
+    # Validate: recover speech gaps that faster-whisper skipped
+    if method == "faster-whisper":
+        from mazinger.validate import validate_transcription
+        from mazinger.utils import get_audio_duration
+
+        audio_dur = get_audio_duration(audio_path)
+        pre_validation = list(raw_segments)
+
+        def _gap_fn(_path, _start, _end):
+            return _transcribe_gap(
+                _path, _start, _end,
+                language=detected_lang,
+                beam_size=beam_size,
+                initial_prompt=initial_prompt,
+            )
+
+        raw_segments, _was_modified = validate_transcription(
+            raw_segments, audio_path, audio_dur,
+            transcribe_gap_fn=_gap_fn,
+        )
+        if _was_modified:
+            _base, _ext = os.path.splitext(output_path)
+            _pre_path = f"{_base}.PRE_VALIDATION{_ext}"
+            with open(_pre_path, "w", encoding="utf-8") as fh:
+                fh.write(_segments_to_srt(pre_validation))
+            log.info("Pre-validation SRT saved: %s", _pre_path)
 
     # LLM refinement: punctuation and misheard-word correction
     if refine:
