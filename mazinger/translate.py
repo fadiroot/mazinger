@@ -278,20 +278,27 @@ DURATION MATCHING (CRITICAL FOR DUBBING):
   Never pad with filler.
 
 STRUCTURAL RULES:
-1. Translate EVERY entry in the MAIN BLOCK. Do NOT skip, merge, split, or \
-   reorder entries.
-2. Return a JSON array of objects, one per input entry, in the SAME order. \
+1. Translate EVERY entry in the MAIN BLOCK. Do NOT skip or reorder entries.
+   MERGING: If two or three ADJACENT entries are clearly fragments of the \
+   same sentence or one continuous spoken thought (e.g. entry N introduces \
+   a person/concept and entry N+1 immediately continues describing it), \
+   you SHOULD merge them into a single entry. Use a hyphenated index like \
+   "2-3" and the combined word budget. Do NOT merge entries that are about \
+   different topics or separated by a clear topic shift.
+2. Return a JSON array of objects in the SAME order. \
    Each object must have exactly two keys: \
-   "index" (the original index) and "text" (the translated {target_language} text).
+   "index" (the original index, or a merged range like "2-3") and \
+   "text" (the translated {target_language} text).
 3. {_technical_terms_instruction(kw_examples, target_language, translate_technical_terms)}
 4. The video covers: {kp_summary}. Use this to disambiguate unclear references.
 5. Return ONLY the JSON array -- no markdown fences, no commentary, no XML \
    tags, no timestamps, no SRT formatting.
 
-EXAMPLE OUTPUT:
+EXAMPLE OUTPUT (with a merge):
 [
   {{"index": "1", "text": "Translated sentence here."}},
-  {{"index": "2", "text": "Next translated sentence."}}
+  {{"index": "2-3", "text": "Merged translation when entries 2 and 3 form one thought."}},
+  {{"index": "4", "text": "Next translated sentence."}}
 ]
 
 You may receive CONTEXT BEFORE and CONTEXT AFTER sections. They are for \
@@ -429,43 +436,83 @@ def _build_messages(
     return msgs
 
 
+# Regex to detect merged range indices like "2-3" or "2–3"
+_RANGE_INDEX_RE = re.compile(r'^(\d+)\s*[-\u2013]\s*(\d+)$')
+
+
 def _parse_translation_response(
     raw_content: str,
     core_blocks: list[tuple[str, float, float, str]],
 ) -> list[tuple[str, float, float, str]]:
     """Parse LLM JSON response and reconstruct blocks with original timestamps.
 
+    Supports merged entries where the LLM combined adjacent blocks into one
+    (indicated by a range index like ``"2-3"``).  Merged entries get the
+    timestamp span of the combined source blocks.
+
     Falls back to treating the response as raw SRT if JSON parsing fails,
     and ultimately falls back to keeping original text if nothing works.
     """
+    block_by_idx: dict[str, tuple[str, float, float, str]] = {
+        idx: (idx, start, end, text) for idx, start, end, text in core_blocks
+    }
+
     # Try JSON parse first (expected path)
     try:
         translations = json_repair.loads(raw_content)
         if isinstance(translations, list) and translations:
             result: list[tuple[str, float, float, str]] = []
-            # Build index -> translated text map (clean artifacts)
-            trans_map: dict[str, str] = {}
-            for item in translations:
-                if isinstance(item, dict) and "index" in item and "text" in item:
-                    trans_map[str(item["index"])] = _clean_llm_text(
-                        str(item["text"])
-                    )
+            absorbed: set[str] = set()  # indices merged into a range
 
-            # Reconstruct blocks in original order with original timestamps
-            for idx, start, end, original_text in core_blocks:
-                translated_text = trans_map.get(idx, "")
-                if translated_text:
-                    result.append((idx, start, end, translated_text))
+            for item in translations:
+                if not isinstance(item, dict) or "index" not in item or "text" not in item:
+                    continue
+                raw_idx = str(item["index"]).strip()
+                text = _clean_llm_text(str(item["text"]))
+
+                range_m = _RANGE_INDEX_RE.match(raw_idx)
+                if range_m:
+                    first = range_m.group(1)
+                    last = range_m.group(2)
+                    first_block = block_by_idx.get(first)
+                    last_block = block_by_idx.get(last)
+                    if first_block and last_block and text:
+                        merged_start = first_block[1]
+                        merged_end = last_block[2]
+                        result.append((first, merged_start, merged_end, text))
+                        for i in range(int(first) + 1, int(last) + 1):
+                            absorbed.add(str(i))
+                        log.info("Merged translation entries %s-%s", first, last)
+                    elif first_block and text:
+                        result.append((first, first_block[1], first_block[2], text))
                 else:
+                    if raw_idx in absorbed:
+                        continue
+                    block = block_by_idx.get(raw_idx)
+                    if block:
+                        if text:
+                            result.append((raw_idx, block[1], block[2], text))
+                        else:
+                            log.warning("Empty translation for index %s, keeping original", raw_idx)
+                            result.append(block)
+
+            # Add any blocks not covered by translation or absorption
+            covered = {r[0] for r in result} | absorbed
+            for idx, start, end, original_text in core_blocks:
+                if idx not in covered:
                     log.warning("Missing translation for index %s, keeping original", idx)
                     result.append((idx, start, end, original_text))
 
-            if len(result) == len(core_blocks):
+            # Sort by start time to maintain order
+            result.sort(key=lambda x: x[1])
+
+            if result:
+                if len(absorbed) > 0:
+                    log.info(
+                        "Translation batch: %d entries merged into %d (absorbed %d)",
+                        len(core_blocks), len(result), len(absorbed),
+                    )
                 return result
-            log.warning(
-                "JSON translation count mismatch: expected %d, got %d",
-                len(core_blocks), len(result),
-            )
     except Exception:
         pass
 
@@ -657,8 +704,14 @@ def translate_srt(
 
     original_count = len(all_blocks)
     translated_count = len(translated_blocks)
-    log.info("Translation complete: %d -> %d entries", original_count, translated_count)
-    if original_count != translated_count:
+    if translated_count < original_count:
+        log.info(
+            "Translation complete: %d -> %d entries (%d merged)",
+            original_count, translated_count, original_count - translated_count,
+        )
+    elif original_count != translated_count:
         log.warning("Entry count mismatch: %d original vs %d translated", original_count, translated_count)
+    else:
+        log.info("Translation complete: %d entries", translated_count)
 
     return result
