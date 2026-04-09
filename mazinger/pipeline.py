@@ -130,8 +130,11 @@ class MazingerDubber:
                             or filename when ``None``.
             device:         Accelerator device (``cuda`` or ``cpu``).
             transcribe_method: Transcription backend: ``faster-whisper`` (default,
-                            local GPU), ``openai`` (cloud API), or ``whisperx``
-                            (requires [transcribe-whisperx] extra).
+                            local GPU), ``openai`` (cloud API), ``whisperx``
+                            (requires [transcribe-whisperx] extra), or
+                            ``deepgram`` (cloud, requires DEEPGRAM_API_KEY).
+            deepgram_api_key: Deepgram API key (Deepgram method only). Falls
+                            back to ``DEEPGRAM_API_KEY`` environment variable.
             whisper_model:  Whisper model name. Defaults to ``whisper-1`` for OpenAI,
                             ``large-v3`` for faster-whisper/WhisperX.
             tts_model_name: HuggingFace model identifier for TTS.

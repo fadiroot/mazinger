@@ -1098,15 +1098,17 @@ def transcribe(
     vad_options: dict | None = None,
     word_timestamps: bool = True,
 ) -> str:
-    """Transcribe audio to SRT using OpenAI Whisper API, faster-whisper, WhisperX, or MLX Whisper.
+    """Transcribe audio to SRT using OpenAI Whisper, faster-whisper, WhisperX, MLX Whisper, or Deepgram.
 
     Parameters:
         audio_path:     Path to the input audio file.
         output_path:    Where to save the final SRT.
         method:         Transcription backend: ``faster-whisper`` (default),
-                        ``openai``, ``whisperx``, or ``mlx-whisper``.
+                        ``openai``, ``whisperx``, ``mlx-whisper``, or
+                        ``deepgram``.
         model:          Model name. Defaults to ``whisper-1`` for OpenAI,
-                        ``large-v3`` for faster-whisper and WhisperX.
+                        ``large-v3`` for faster-whisper/WhisperX,
+                        ``nova-3`` for Deepgram.
         device:         ``cuda`` or ``cpu`` (local methods only).
         batch_size:     Inference batch size (local methods only).
         compute_type:   ``float16``, ``int8``, or ``int8_float16`` (local methods).
@@ -1117,6 +1119,8 @@ def transcribe(
         skip_resegment: When ``True``, keep original segments as-is.
         openai_api_key: OpenAI API key (OpenAI method only). Falls back to
                         ``OPENAI_API_KEY`` environment variable.
+        deepgram_api_key: Deepgram API key (Deepgram method only). Falls back
+                        to ``DEEPGRAM_API_KEY`` environment variable.
 
     Returns:
         The path to the saved SRT file.
@@ -1133,6 +1137,9 @@ def transcribe(
 
         # Using WhisperX (requires [transcribe-whisperx] extra)
         transcribe("audio.mp3", "output.srt", method="whisperx", device="cuda")
+
+        # Using Deepgram Nova-3 (cloud, fast and accurate)
+        transcribe("audio.mp3", "output.srt", method="deepgram")
 
         # Using MLX Whisper (Apple Silicon, requires [transcribe-mlx] extra)
         transcribe("audio.mp3", "output.srt", method="mlx-whisper")
