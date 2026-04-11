@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import urllib.request
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def _download_file(url: str, dest: str) -> None:
     log.info("Downloading %s -> %s", url, dest)
     with urllib.request.urlopen(_make_request(url), timeout=30) as response:
         with open(dest, "wb") as f:
-            f.write(response.read())
+            shutil.copyfileobj(response, f)
 
 
 def _convert_to_wav(src: str, dest: str) -> None:
@@ -674,19 +675,23 @@ def fetch_profile(profile_name: str, cache_dir: str | None = None) -> tuple[str,
     if os.path.isdir(profile_name):
         return _load_local_profile(profile_name)
 
-    def _profile_exists(base_url: str) -> bool:
+    def _profile_exists(base_url: str) -> tuple[bool, str]:
         url = f"{base_url}/{profile_name}/{SCRIPT_FILENAME}"
         try:
             urllib.request.urlopen(_make_request(url, "HEAD"), timeout=10)
-            return True
-        except Exception:
-            return False
+            return True, ""
+        except HTTPError as e:
+            return False, str(e.code)
+        except URLError as e:
+            return False, str(e.reason)
+        except Exception as e:
+            return False, str(e)
 
     default_url = DEFAULT_PROFILES_REPO_URL
     custom_url = CUSTOM_PROFILES_REPO_URL
 
-    in_default = _profile_exists(default_url)
-    in_custom = _profile_exists(custom_url) if custom_url else False
+    in_default, default_err = _profile_exists(default_url)
+    in_custom, custom_err = _profile_exists(custom_url) if custom_url else (False, "")
 
     if in_default and in_custom:
         base_url = custom_url
@@ -696,7 +701,15 @@ def fetch_profile(profile_name: str, cache_dir: str | None = None) -> tuple[str,
     elif in_default:
         base_url = default_url
     else:
-        raise FileNotFoundError(f"Profile '{profile_name}' not found")
+        msg = f"Profile '{profile_name}' not found in any repo."
+        if custom_url and custom_err:
+            if "401" in custom_err:
+                msg += " Custom repo requires auth - set HF_TOKEN."
+            elif "404" in custom_err:
+                msg += " Custom repo: check name and that files are named 'script.txt' and 'voice.wav'."
+        if not in_default and default_err:
+            msg += f" Default repo error: {default_err}"
+        raise FileNotFoundError(msg)
 
     if cache_dir is None:
         cache_dir = os.path.join(
